@@ -16,15 +16,15 @@ void update(Point& p)
 	{
 		for (int j = 0; j < t_update_large.size(); j++)
 		{
-			if (img.at<Vec3b>(p.y, p.x)[0]
-				< img.at<Vec3b>(tmp.y + t_update_large[j], tmp.x + t_update_small[i])[0])
+			if (img.at<byte>(p.y, p.x)
+				< img.at<byte>(tmp.y + t_update_large[j], tmp.x + t_update_small[i]))
 			{
 
 				p.y = tmp.y + t_update_large[j];
 				p.x = tmp.x + t_update_small[i];
 			}
-			/*if (img.at<Vec3b>(p.y, p.x)[0] < 
-				img.at<Vec3b>(p.y + t_update_large[j], p.x + t_update_small[i])[0])
+			/*if (img.at<byte>(p.y, p.x) < 
+				img.at<byte>(p.y + t_update_large[j], p.x + t_update_small[i]))
 			{
 				p.y += t_update_large[j];
 				p.x += t_update_small[i];
@@ -34,7 +34,7 @@ void update(Point& p)
 
 	/*for (int i = 0; i < t_small.size(); i++)
 	{
-		if (img.at<Vec3b>(p.y, p.x)[0] < img.at<Vec3b>(tmp.y, tmp.x + t_small[i])[0])
+		if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y, tmp.x + t_small[i]))
 		{
 			p.x = tmp.x + t_small[i];
 		}
@@ -49,9 +49,9 @@ void optimize_conner(vector<Point>& corner, int i)
 	{
 		for (int tx = 0; tx < t_large.size(); tx++)
 		{
-			//cout << (int)img.at<Vec3b>(corner[i].y + t_small[ty], corner[i].x + t_large[tx])[0] << " ";
-			if (img.at<Vec3b>(tmp.y, tmp.x)[0]
-				< img.at<Vec3b>(corner[i].y + t_small[ty], corner[i].x + t_large[tx])[0])
+			//cout << (int)img.at<byte>(corner[i].y + t_small[ty], corner[i].x + t_large[tx]) << " ";
+			if (img.at<byte>(tmp.y, tmp.x)
+				< img.at<byte>(corner[i].y + t_small[ty], corner[i].x + t_large[tx]))
 			{
 				tmp.x = corner[i].x + t_large[tx];
 				tmp.y = corner[i].y + t_small[ty];
@@ -66,9 +66,9 @@ void optimize_conner(vector<Point>& corner, int i)
 	{
 		for (int tx = 0; tx < t_small.size(); tx++)
 		{
-			//cout << (int)img.at<Vec3b>(corner[i].y + t19[ty], corner[i].x + t5[tx])[0] << " ";
-			if (img.at<Vec3b>(tmp.y, tmp.x)[0]
-				< img.at<Vec3b>(corner[i+1].y + t_large[ty], corner[i+1].x + t_small[tx])[0])
+			//cout << (int)img.at<byte>(corner[i].y + t19[ty], corner[i].x + t5[tx]) << " ";
+			if (img.at<byte>(tmp.y, tmp.x)
+				< img.at<byte>(corner[i+1].y + t_large[ty], corner[i+1].x + t_small[tx]))
 			{
 				tmp.x = corner[i+1].x + t_small[tx];
 				tmp.y = corner[i+1].y + t_large[ty];
@@ -82,8 +82,8 @@ void optimize_conner(vector<Point>& corner, int i)
 	if ((corner[i].x - corner[i + 1].x)*(corner[i].x - corner[i + 1].x) +
 		(corner[i].y - corner[i + 1].y)*(corner[i].y - corner[i + 1].y) < 8)
 	{
-		if (img.at<Vec3b>(corner[i].y, corner[i].x)[0]
-			< img.at<Vec3b>(corner[i+1].y, corner[i+1].x)[0])
+		if (img.at<byte>(corner[i].y, corner[i].x)
+			< img.at<byte>(corner[i+1].y, corner[i+1].x))
 		{
 			corner[i] = corner[i + 1];
 		}
@@ -98,6 +98,8 @@ void find_OLED_location(vector<Point>& centers)
 {
 	Performance p;
 	img = imread("G32.bmp");
+	Mat img_copy = img;
+	cvtColor(img, img, CV_BGR2GRAY);
 	int i0 = -1, i1, j0 = -1, j1;
 
 	// find corner - not use
@@ -108,22 +110,22 @@ void find_OLED_location(vector<Point>& centers)
 	//	{
 	//		for (int j = 0; j < img_copy.cols; j++)
 	//		{
-	//			if (img_copy.at<Vec3b>(i, j)[0] != 255
-	//				|| img_copy.at<Vec3b>(i, j)[1] != 255
-	//				|| img_copy.at<Vec3b>(i, j)[2] != 255)
+	//			if (img_copy.at<byte>(i, j) != 255
+	//				|| img_copy.at<byte>(i, j)[1] != 255
+	//				|| img_copy.at<byte>(i, j)[2] != 255)
 	//			{
-	//				img_copy.at<Vec3b>(i, j)[0] = 0;
-	//				img_copy.at<Vec3b>(i, j)[1] = 0;
-	//				img_copy.at<Vec3b>(i, j)[2] = 0;
+	//				img_copy.at<byte>(i, j) = 0;
+	//				img_copy.at<byte>(i, j)[1] = 0;
+	//				img_copy.at<byte>(i, j)[2] = 0;
 	//			}
 	//		}
 	//	}*/
 	//	int tmp = img_copy.cols / 2, i0_old = -1;
 	//	for (int i = 0; i < img_copy.rows; i++)
 	//	{
-	//		if (img_copy.at<Vec3b>(i, tmp) == Vec3b(255, 255, 255)
-	//			/*&& img_copy.at<Vec3b>(i, tmp + 1) == Vec3b(255, 255, 255)
-	//			&& img_copy.at<Vec3b>(i, tmp - 1) == Vec3b(255, 255, 255)*/)
+	//		if (img_copy.at<byte>(i, tmp) == Vec3b(255, 255, 255)
+	//			/*&& img_copy.at<byte>(i, tmp + 1) == Vec3b(255, 255, 255)
+	//			&& img_copy.at<byte>(i, tmp - 1) == Vec3b(255, 255, 255)*/)
 	//		{
 	//			if (i0 == -1) i0 = i;
 	//			i1 = i;
@@ -132,9 +134,9 @@ void find_OLED_location(vector<Point>& centers)
 	//	tmp = img_copy.rows / 2;
 	//	for (int j = 0; j < img_copy.cols; j++)
 	//	{
-	//		if (img_copy.at<Vec3b>(tmp, j) == Vec3b(255, 255, 255)
-	//			/*&& img_copy.at<Vec3b>(tmp - 1, j) == Vec3b(255, 255, 255)
-	//			&& img_copy.at<Vec3b>(tmp + 1, j) == Vec3b(255, 255, 255)*/)
+	//		if (img_copy.at<byte>(tmp, j) == Vec3b(255, 255, 255)
+	//			/*&& img_copy.at<byte>(tmp - 1, j) == Vec3b(255, 255, 255)
+	//			&& img_copy.at<byte>(tmp + 1, j) == Vec3b(255, 255, 255)*/)
 	//		{
 	//			if (j0 == -1) j0 = j;
 	//			j1 = j;
@@ -154,8 +156,8 @@ void find_OLED_location(vector<Point>& centers)
 		int tmp = img.cols / 2;
 		for (int i = 0; i < img.rows; i++)
 		{
-			if (img.at<Vec3b>(i, tmp)[0] > low_limit
-				|| img.at<Vec3b>(i, tmp - initail_interval)[0] > low_limit)
+			if (img.at<byte>(i, tmp) > low_limit
+				|| img.at<byte>(i, tmp - initail_interval) > low_limit)
 			{
 				i0 = i;
 				break;
@@ -163,8 +165,8 @@ void find_OLED_location(vector<Point>& centers)
 		}
 		for (int i = img.rows - 1; i > 0; i--)
 		{
-			if (img.at<Vec3b>(i, tmp)[0] > low_limit
-				|| img.at<Vec3b>(i, tmp - initail_interval)[0] > low_limit)
+			if (img.at<byte>(i, tmp) > low_limit
+				|| img.at<byte>(i, tmp - initail_interval) > low_limit)
 			{
 				i1 = i;
 				break;
@@ -173,8 +175,8 @@ void find_OLED_location(vector<Point>& centers)
 		tmp = img.rows / 2;
 		for (int j = 0; j < img.cols; j++)
 		{
-			if (img.at<Vec3b>(tmp, j)[0] > low_limit
-				&&img.at<Vec3b>(tmp - initail_interval, j)[0] > low_limit)
+			if (img.at<byte>(tmp, j) > low_limit
+				&&img.at<byte>(tmp - initail_interval, j) > low_limit)
 			{
 				j0 = j;
 				break;
@@ -182,8 +184,8 @@ void find_OLED_location(vector<Point>& centers)
 		}
 		for (int j = img.cols - 1; j > 0; j--)
 		{
-			if (img.at<Vec3b>(tmp, j)[0] > low_limit
-				&&img.at<Vec3b>(tmp - initail_interval, j)[0] > low_limit)
+			if (img.at<byte>(tmp, j) > low_limit
+				&&img.at<byte>(tmp - initail_interval, j) > low_limit)
 			{
 				j1 = j;
 				break;
@@ -203,7 +205,7 @@ void find_OLED_location(vector<Point>& centers)
 		ofstream out("./output/one_row.csv");
 		for (int j = 0; j < img_copy.cols; j++)
 		{
-			if (img_copy.at<Vec3b>(k*j + b, j)[0] > low_limit)
+			if (img_copy.at<byte>(k*j + b, j) > low_limit)
 			{
 				if (cnt_points.size() == 0
 					|| j - cnt_points[cnt_points.size() - 1].x > 5)
@@ -211,7 +213,7 @@ void find_OLED_location(vector<Point>& centers)
 					Point p(j, k*j + b), tmp(p);
 					for (int i = 0; i < t_small.size(); i++)
 					{
-						if (img.at<Vec3b>(p.y, p.x)[0] < img.at<Vec3b>(tmp.y, tmp.x + t_small[i])[0])
+						if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y, tmp.x + t_small[i]))
 						{
 							p.x = tmp.x + t_small[i];
 						}
@@ -219,7 +221,7 @@ void find_OLED_location(vector<Point>& centers)
 					update(p);
 					out << p.x << endl;
 					cnt_points.push_back(p);
-					img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 0);
+					img_copy.at<byte>(p.y, p.x) = Vec3b(0, 255, 0);
 				}
 			}
 		}
@@ -241,17 +243,17 @@ void find_OLED_location(vector<Point>& centers)
 		ofstream out("./output/one_column.csv");
 		for (int y = 0; y < img_copy.rows; y++)
 		{
-			if (img_copy.at<Vec3b>(y, (y - b) / k)[0] > 7)
+			if (img_copy.at<byte>(y, (y - b) / k) > 7)
 			{
 				if (cnt_points.size() == 0
 					|| y - cnt_points[cnt_points.size() - 1].y > 5)
 				{
 					//cnt_points.push_back(Point((y - b) / k, y));
-					//img_copy.at<Vec3b>(y, (y - b) / k) = Vec3b(0, 255, 0);
+					//img_copy.at<byte>(y, (y - b) / k) = Vec3b(0, 255, 0);
 					Point p((y - b) / k, y), tmp(p);
 					for (int i = 0; i < t_small.size(); i++)
 					{
-						if (img.at<Vec3b>(p.y, p.x)[0] < img.at<Vec3b>(tmp.y + t_small[i], tmp.x)[0])
+						if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y + t_small[i], tmp.x))
 						{
 							p.y = tmp.y + t_small[i];
 						}
@@ -259,7 +261,7 @@ void find_OLED_location(vector<Point>& centers)
 					update(p);
 					out << p.y << endl;
 					cnt_points.push_back(p);
-					img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 0);
+					img_copy.at<byte>(p.y, p.x) = Vec3b(0, 255, 0);
 				}
 			}
 		}
@@ -308,8 +310,8 @@ void find_OLED_location(vector<Point>& centers)
 	line(img_copy, corner[7], corner[3], Scalar(0, 0, 255), 1);
 	for (int i = 0; i < corner.size(); i += 2)
 	{
-		img_copy.at<Vec3b>(corner[i].y, corner[i].x) = Vec3b(255, 0, 255);
-		img_copy.at<Vec3b>(corner[i+1].y, corner[i+1].x) = Vec3b(0, 255, 255);
+		img_copy.at<byte>(corner[i].y, corner[i].x) = Vec3b(255, 0, 255);
+		img_copy.at<byte>(corner[i+1].y, corner[i+1].x) = Vec3b(0, 255, 255);
 	}
 	imwrite("./output/G32_corner.png", img_copy);*/
 	pp.endAndPrint();
@@ -334,7 +336,7 @@ void find_OLED_location(vector<Point>& centers)
 ////			for (float j = corner[1].x; j <= corner[1].x; j += addj)
 ////			{
 ////				Point p(j, i);
-////				img_copy.at<Vec3b>(i, j) = Vec3b(0, 255, 255);
+////				img_copy.at<byte>(i, j) = Vec3b(0, 255, 255);
 ////				update(p);
 ////				//update(p);
 ////				centers.push_back(p);
@@ -359,7 +361,7 @@ void find_OLED_location(vector<Point>& centers)
 //
 //				float b = i - begin.x * k_line;
 //				Point p(j, k_line*j+b);
-//				img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 255);
+//				img_copy.at<byte>(p.y, p.x) = Vec3b(0, 255, 255);
 //				update(p);
 //				centers.push_back(p);
 //			}
@@ -369,13 +371,13 @@ void find_OLED_location(vector<Point>& centers)
 //		cout << "cornor index : " << i0 << " " << j0 << " " << i1 << " " << j1 << endl;
 //		cout << "internal: " << addi << " " << addj << endl;
 //		cout << "point size: " << endl << 1920 * 1080 << endl << centers.size() << endl;
-//		/*img_copy.at<Vec3b>(i0, j0) = Vec3b(0, 255, 0);
-//		img_copy.at<Vec3b>(i1, j1) = Vec3b(0, 255, 0);
-//		img_copy.at<Vec3b>(i1, j0) = Vec3b(0, 255, 0);
-//		img_copy.at<Vec3b>(i0, j1) = Vec3b(0, 255, 0);*/
+//		/*img_copy.at<byte>(i0, j0) = Vec3b(0, 255, 0);
+//		img_copy.at<byte>(i1, j1) = Vec3b(0, 255, 0);
+//		img_copy.at<byte>(i1, j0) = Vec3b(0, 255, 0);
+//		img_copy.at<byte>(i0, j1) = Vec3b(0, 255, 0);*/
 //		for (auto p : centers)
 //		{
-//			img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 0, 255);
+//			img_copy.at<byte>(p.y, p.x) = Vec3b(0, 0, 255);
 //		}
 //
 //		imwrite("./output/G32_position.png", img_copy);
@@ -423,18 +425,17 @@ void find_OLED_location(vector<Point>& centers)
 //		Mat img_copy = img * real_value;
 //		for (auto p : line_head)
 //		{
-//			img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 255);
+//			img_copy.at<byte>(p.y, p.x) = Vec3b(0, 255, 255);
 //		}
 //		for (auto p : centers)
 //		{
-//			img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 0, 255);
+//			img_copy.at<byte>(p.y, p.x) = Vec3b(0, 0, 255);
 //		}
 //		//imwrite("./output/G32_position.png", img_copy);
 //	}
 
 	// 3
 	{
-		Mat img_copy = img;
 		const int low_limit = 5, initail_interval = 6;
 		vector<Point> line_head;
 		{
@@ -443,39 +444,37 @@ void find_OLED_location(vector<Point>& centers)
 				b2 = corner[0].y - corner[0].x * k;
 			for (float y = corner[1].y; y <= corner[5].y; y++)
 			{
-				if (img_copy.at<Vec3b>(y, (y - b1) / k)[0] > low_limit &&
+				if (img.at<byte>(y, (y - b1) / k) > low_limit &&
 					(line_head.size() == 0 || y - line_head[line_head.size() - 1].y > initail_interval))
 				{
 					Point p((y - b1) / k, y), tmp(p);
 					for (int i = 0; i < t_small.size(); i++)
 					{
-						if (img.at<Vec3b>(p.y, p.x)[0] < img.at<Vec3b>(tmp.y + t_small[i], tmp.x)[0])
+						if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y + t_small[i], tmp.x))
 						{
 							p.y = tmp.y + t_small[i];
 						}
 					}
 					update(p);
 					line_head.push_back(p);
-					img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 0);
 				}
 			}
 			int tmp = line_head.size();
 			for (float y = corner[0].y; y <= corner[4].y; y++)
 			{
-				if (img_copy.at<Vec3b>(y, (y - b2) / k)[0] > low_limit &&
+				if (img.at<byte>(y, (y - b2) / k) > low_limit &&
 					(line_head.size() == tmp || y - line_head[line_head.size() - 1].y > initail_interval))
 				{
 					Point p((y - b2) / k, y), tmp(p);
 					for (int i = 0; i < t_small.size(); i++)
 					{
-						if (img.at<Vec3b>(p.y, p.x)[0] < img.at<Vec3b>(tmp.y + t_small[i], tmp.x)[0])
+						if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y + t_small[i], tmp.x))
 						{
 							p.y = tmp.y + t_small[i];
 						}
 					}
 					update(p);
 					line_head.push_back(p);
-					img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 0);
 				}
 			}
 
@@ -486,13 +485,13 @@ void find_OLED_location(vector<Point>& centers)
 				for (int x = line_head[hi].x++; x < corner[3].x; x++)
 				{
 					float b = line_head[hi].y - line_head[hi].x*k;
-					if (img_copy.at<Vec3b>(k*x + b, x)[0] > low_limit
+					if (img.at<byte>(k*x + b, x) > low_limit
 						&& x - centers[centers.size() - 1].x > initail_interval)
 					{
 						Point p(x, k*x + b), tmp(p);
 						for (int i = 0; i < t_small.size(); i++)
 						{
-							if (img.at<Vec3b>(p.y, p.x)[0] < img.at<Vec3b>(tmp.y, tmp.x + t_small[i])[0])
+							if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y, tmp.x + t_small[i]))
 							{
 								p.x = tmp.x + t_small[i];
 							}

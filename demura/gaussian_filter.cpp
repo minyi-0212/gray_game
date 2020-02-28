@@ -142,24 +142,24 @@ void gaussian(const vector<Point>& centers)
 	for (int i=0;i<centers.size();i++)
 	{
 		centers_vec[i] << 
-			img.at<Vec3b>(centers[i].y-1,centers[i].x-1)[0],
-			img.at<Vec3b>(centers[i].y-1,centers[i].x)[0],
-			img.at<Vec3b>(centers[i].y-1,centers[i].x+1)[0],
+			img.at<byte>(centers[i].y-1,centers[i].x-1),
+			img.at<byte>(centers[i].y-1,centers[i].x),
+			img.at<byte>(centers[i].y-1,centers[i].x+1),
 					   
-			img.at<Vec3b>(centers[i].y,centers[i].x-1)[0],
-			img.at<Vec3b>(centers[i].y,centers[i].x)[0],
-			img.at<Vec3b>(centers[i].y,centers[i].x+1)[0],
+			img.at<byte>(centers[i].y,centers[i].x-1),
+			img.at<byte>(centers[i].y,centers[i].x),
+			img.at<byte>(centers[i].y,centers[i].x+1),
 					   
-			img.at<Vec3b>(centers[i].y+1,centers[i].x-1)[0],
-			img.at<Vec3b>(centers[i].y+1,centers[i].x)[0],
-			img.at<Vec3b>(centers[i].y+1, centers[i].x+1)[0];
+			img.at<byte>(centers[i].y+1,centers[i].x-1),
+			img.at<byte>(centers[i].y+1,centers[i].x),
+			img.at<byte>(centers[i].y+1, centers[i].x+1);
 		centers_vec[i].normalize();
 	}
 	Performance p;
-	//for (double sigma = 1.5; sigma < 2.5; sigma+=0.1) // 1.8
-	//{
-	//	compute_sigma(centers_vec, 16, sigma);
-	//}
-	compute_sigma(centers_vec, 16, 1.8);
+	for (double sigma = 1.5; sigma < 2.5; sigma+=0.05) // 1.8
+	{
+		compute_sigma(centers_vec, 16, sigma);
+	}
+	//compute_sigma(centers_vec, 16, 1.8);
 	p.endAndPrint();
 }
