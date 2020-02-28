@@ -1,5 +1,4 @@
 #include "gaussian_filter.h"
-#include <Eigen/core>
 
 const double PI = 4.0*atan(1.0); //‘≤÷‹¬ ¶–∏≥÷µ
 using namespace std;
@@ -7,6 +6,8 @@ using namespace cv;
 using namespace Eigen;
 
 extern Mat img;
+extern int IMG_WIDTH;
+Mat img_output;
 
 double gauss_sample(const int size, const double sigma,
 	const int x, const int y, const int center)
@@ -36,8 +37,8 @@ void get_gaussian_kernel(vector<vector<double>>& gaus, const int size, const dou
 	{
 		for (int j = 0; j < size; j++)
 		{
-			//gaus[i+1][j+1] = (1 / (2 * PI*sigma*sigma))*exp(-((i - center)*(i - center) + (j - center)*(j - center)) / (2 * sigma*sigma));
-			gaus[i + 1][j + 1] = gauss_sample(size, sigma, i, j, center);
+			gaus[i+1][j+1] = (1 / (2 * PI*sigma*sigma))*exp(-((i - center)*(i - center) + (j - center)*(j - center)) / (2 * sigma*sigma));
+			//gaus[i + 1][j + 1] = gauss_sample(size, sigma, i, j, center);
 			sum += gaus[i+1][j+1];
 		}
 	}
@@ -105,7 +106,7 @@ void combination_kernels(const vector<VectorXd>& kernels)
 	imwrite("./output/kernels.png", k);
 }
 
-void compute_sigma(const vector<VectorXd>& centers_vec,const int size, const double sigma)
+double compute_sigma(const unordered_map<int, VectorXd>& centers,const int size, const double sigma)
 {
 	//int size = 16, sigma = 10;
 	vector<VectorXd> kernels;
@@ -114,16 +115,20 @@ void compute_sigma(const vector<VectorXd>& centers_vec,const int size, const dou
 	//combination_kernels(kernels);
 	cout << "get_kernels: " << p.end() << "s" << endl;
 	double loss = 0, tmp_loss;
-	cout << centers_vec.size() << endl;
 	p.start();
 #pragma parallel omp for
-	for (int v = 0; v < centers_vec.size(); v++)
+	for (auto v: centers)
 	{
 		tmp_loss = 100;
 		for (int k = 0; k < kernels.size(); k++)
 		{
-			VectorXd vk(centers_vec[v] - kernels[k]);
-			//cout << vk.dot(vk) << endl;
+			VectorXd vk(v.second.normalized() - kernels[k]);
+			/*cout << "[";
+			for (int i = 0; i < 9; i++)
+				cout << vk[i] << ", ";
+			cout << "]" << endl;
+			cout << vk.dot(vk) << endl;*/
+			//cout << v.second.normalized().norm() << endl;
 			if (vk.dot(vk) < tmp_loss)
 				tmp_loss = vk.dot(vk);
 		}
@@ -133,11 +138,54 @@ void compute_sigma(const vector<VectorXd>& centers_vec,const int size, const dou
 	}
 	cout << "compute loss: " << p.end() <<"s"<< endl;
 	cout << "sigma: "<< sigma << ", loss: " << loss << endl << endl;
+	return loss;
 }
 
-void gaussian(const vector<Point>& centers)
+vector<int> region({-1,0,1});
+void draw(const int y, const int x, const byte val)
 {
-	vector<VectorXd> centers_vec(centers.size(), VectorXd(9));  //to do->hash°¢unique
+	for (int i = 0; i < region.size(); i++)
+	{
+		for (int j = 0; j < region.size(); j++)
+		{
+			img_output.at<byte>(y+region[i], x+region[j]) = val;
+		}
+	}
+}
+
+void get_result(const unordered_map<int, VectorXd>& centers, const int size, const double sigma)
+{
+	vector<VectorXd> kernels;
+	get_region_kernels(kernels, size, sigma);
+	double tmp_loss;
+	int index;
+	VectorXd s1, s2;
+	for (auto v : centers)
+	{
+		tmp_loss = 100;
+		index = v.first;
+		for (int k = 0; k < kernels.size(); k++)
+		{
+			VectorXd vk(v.second.normalized() - kernels[k]);
+			//cout << vk.dot(vk) << endl;
+			if (vk.dot(vk) < tmp_loss)
+			{
+				tmp_loss = vk.dot(vk);
+				s1 = v.second;
+				s2 = vk;
+			}
+		}
+		int result = s1.dot(s2) / s1.normalized().dot(s2);
+		cout << result << "," << s1.norm() << endl;
+		draw(index / IMG_WIDTH, index % IMG_WIDTH, result);
+	}
+	imwrite("./output/result.png", img_output);
+}
+
+void gaussian(const unordered_map<int, VectorXd>& centers)
+{
+	img_output= Mat(Size(img.cols, img.rows), CV_8UC1);
+	/*vector<VectorXd> centers_vec(centers.size(), VectorXd(9));  //to do->hash°¢unique
 	
 	for (int i=0;i<centers.size();i++)
 	{
@@ -154,12 +202,14 @@ void gaussian(const vector<Point>& centers)
 			img.at<byte>(centers[i].y+1,centers[i].x),
 			img.at<byte>(centers[i].y+1, centers[i].x+1);
 		centers_vec[i].normalize();
-	}
+	}*/
 	Performance p;
-	for (double sigma = 1.5; sigma < 2.5; sigma+=0.05) // 1.8
+	// 1.8 0.7
+	/*for (double sigma = 1.6; sigma < 2.5; sigma+=0.1) 
 	{
-		compute_sigma(centers_vec, 16, sigma);
-	}
+		compute_sigma(centers, 16, sigma);
+	}*/
 	//compute_sigma(centers_vec, 16, 1.8);
+	get_result(centers, 16, 0.7);
 	p.endAndPrint();
 }

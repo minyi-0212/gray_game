@@ -2,6 +2,7 @@
 #include "gaussian_filter.h"
 using namespace std;
 using namespace cv;
+using namespace Eigen;
 
 void test_g32()
 {
@@ -36,7 +37,8 @@ void test_g32()
 int main()
 {
 	//test_g32();
-	vector<Point> centers;
+	//vector<Point> centers;
+	unordered_map<int, VectorXd> centers(2000000);
 	find_OLED_location(centers);
 	cout << "--------------------" << endl;
 	gaussian(centers);

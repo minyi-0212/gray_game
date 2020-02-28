@@ -1,4 +1,4 @@
 #pragma once
 #include "main.h"
 
-void gaussian(const std::vector<cv::Point>& centers);
+void gaussian(const std::unordered_map<int, Eigen::VectorXd>& centers);
