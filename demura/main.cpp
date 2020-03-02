@@ -39,7 +39,7 @@ int main()
 	//test_g32();
 	//vector<Point> centers;
 	unordered_map<int, VectorXd> centers(2000000);
-	find_OLED_location(centers);
+	//find_OLED_location(centers);
 	cout << "--------------------" << endl;
 	gaussian(centers);
 

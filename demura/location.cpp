@@ -565,7 +565,7 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers)
 		cout << 960*720*2 << ", size of points: " << centers.size() << endl;
 		imwrite("./output/G32_pick_point.png", img_copy * 8);
 
-		img_copy = Mat::zeros(img_copy.size(), CV_8UC1);
+		img_copy = Mat(img_copy.size(), CV_8UC3, Scalar(255,0,0));
 		vector<int> region({ -1,0,1 });
 		for (auto p : centers)
 		{
@@ -575,7 +575,8 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers)
 				{
 					int x = p.first % IMG_WIDTH + region[j],
 						y = p.first / IMG_WIDTH + region[i];
-					img_copy.at<byte>(y, x) = img.at<byte>(y, x);
+					byte t = img.at<byte>(y, x);
+					img_copy.at<Vec3b>(y, x) = Vec3b(t, t, t);
 				}
 			}
 		}

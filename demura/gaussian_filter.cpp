@@ -11,19 +11,26 @@ extern Mat img;
 extern int IMG_WIDTH;
 Mat img_output;
 
+double compute_gauss_value(const double sigma,
+	const double x, const double y, const double center)
+{
+	return (1 / (2 * PI*sigma*sigma)) * exp(-((x - center)*(x - center)
+		+ (y - center)*(y - center)) / (2 * sigma*sigma));
+}
+
+vector<double> sample({-0.5, -0.4, -0.3, -0.2, -0.1, 0, 0.1, 0.2, 0.3, 0.4, 0.5});
 double gauss_sample(const int size, const double sigma,
 	const int x, const int y, const double center)
 {
-	double v=0, range= 0.5, interval = 0.1;
-	for (double yi = y - range; yi < y + range; yi += interval)
+	double v=0;
+	for (int j=0;j< sample.size();j++)
 	{
-		for (double xi = x - range; xi < x + range; xi += interval)
+		for (int i = 0; i < sample.size(); i++)
 		{
-			v += (1 / (2 * PI*sigma*sigma))*exp(-((xi - center)*(xi - center)
-				+ (yi - center)*(yi - center)) / (2 * sigma*sigma));
+			v += compute_gauss_value(sigma, x + sample[i], y + sample[j], center);
 		}
 	}
-	return v / (interval * 2 / interval);
+	return v / sample.size() / sample.size();
 }
 
 void get_gaussian_kernel(vector<vector<double>>& gaus, const int size, const double sigma)
@@ -34,30 +41,40 @@ void get_gaussian_kernel(vector<vector<double>>& gaus, const int size, const dou
 		return;
 	}
 	double center = (size-1) / 2.0;
+	//cout << "center: " << center << endl;
 	double sum = 0;
-	for (int i = 0; i < size; i++)
+	for (int i = 0; i <= size+1; i++)
 	{
-		for (int j = 0; j < size; j++)
+		for (int j = 0; j <= size+1; j++)
 		{
-			//gaus[i+1][j+1] = (1 / (2 * PI*sigma*sigma))*exp(-((i - center)*(i - center) + (j - center)*(j - center)) / (2 * sigma*sigma));
-			gaus[i + 1][j + 1] = gauss_sample(size, sigma, i, j, center);
-			sum += gaus[i+1][j+1];
+			//gaus[i][j] = compute_gauss_value(sigma, i - 1, j - 1, center);
+			gaus[i][j] = gauss_sample(size, sigma, i-1, j-1, center);
+			//sum += gaus[i][j];
 		}
 	}
-	for (int i = 1; i < size+1; i++)
+	
+	Mat tmp= Mat::zeros(Size(size + 2, size + 2), CV_8UC3);
+	for (int i = 0; i < size+2; i++)
 	{
-		for (int j = 1; j < size+1; j++)
+		for (int j = 0; j < size+2; j++)
 		{
-			gaus[i][j] /= sum;
+			//gaus[i][j] /= sum;
+			cout << gaus[i][j] << " ";
+			byte t = gaus[i][j] * 1000;
+			tmp.at<Vec3b>(j, i) = Vec3b(t,t,t);
 		}
+		cout << endl;
 	}
+	cout << endl;
+	imwrite("./output/kernels_look.png", tmp);
+
 	return;
 }
 
 void get_region_kernels(vector<VectorXd>& kernels, const int size, const double sigma)
 {
-	vector<vector<double>> gaus(size+2, vector<double>(size+2)),
-		gaus_add1(size + 3, vector<double>(size + 3));
+	vector<vector<double>> gaus(size + 2, vector<double>(size + 2, 0)),
+		gaus_add1(size + 3, vector<double>(size + 3, 0));
 	get_gaussian_kernel(gaus, size, sigma);
 	get_gaussian_kernel(gaus_add1, size+1, sigma);
 	/*for (auto g : gaus)
@@ -96,7 +113,6 @@ void combination_kernels(const vector<VectorXd>& kernels)
 	int size = sqrt(kernels.size()/2), kernel_size = 3;
 	cout << "kernels count: " << size << endl;
 	Mat k_img(Size(size * kernel_size, size * kernel_size), CV_8UC3);
-//#pragma parallel omp for
 	for (int y = 0; y < size; y++)
 	{
 		for (int x = 0; x < size; x++)
@@ -107,7 +123,7 @@ void combination_kernels(const vector<VectorXd>& kernels)
 				{
 					/*cout << x << " " << " " << yy << " " << x * kernel_size + xx << ","
 						<< xx << " " << yy << " " << x << " " << yy * kernel_size + xx << endl;*/
-					int t = (int)(kernels[(y*size + x)*2][yy*kernel_size + xx]  * 255 );
+					int t = (int)(kernels[(y*size + x)*2][yy*kernel_size + xx]  * 2550 );
 					k_img.at<Vec3b>(y * kernel_size + yy, x * kernel_size + xx)
 						= Vec3b(t, t, t);
 				}
@@ -150,7 +166,6 @@ int find_most_similar(const VectorXd& point, const vector<VectorXd>& kernels)
 double compute_sigma(const unordered_map<int, VectorXd>& centers,
 	const int size, const double sigma)
 {
-	//int size = 16, sigma = 10;
 	vector<VectorXd> kernels;
 	Performance p;
 	get_region_kernels(kernels, size, sigma);
@@ -162,7 +177,6 @@ double compute_sigma(const unordered_map<int, VectorXd>& centers,
 	cout << "get_kernels: " << p.end() << "s" << endl;
 	double loss = 0, tmp_dot;
 	p.start();
-//#pragma parallel omp for
 	for (auto v: centers)
 	{
 		int tmp_k_index = find_most_similar(v.second.normalized(), kernels);
@@ -181,7 +195,8 @@ void draw(const int y, const int x, const byte val)
 	{
 		for (int j = 0; j < region.size(); j++)
 		{
-			img_output.at<byte>(y + region[i], x + region[j]) = val;
+			img_output.at<Vec3b>(y + region[i], x + region[j])
+				= Vec3b(val, val, val);
 		}
 	}
 }
@@ -193,7 +208,9 @@ void draw_pic_with_kernel(const int y, const int x,
 	{
 		for (int j = 0; j < region.size(); j++)
 		{
-			img_output.at<byte>(y + region[i], x + region[j]) = val * kernel[i * 3 + j];
+			img_output.at<Vec3b>(y + region[i], x + region[j]) = 
+				Vec3b(val * kernel[i * 3 + j], val * kernel[i * 3 + j], val * kernel[i * 3 + j]);
+			//img_output.at<byte>(y + region[i], x + region[j]) = val * kernel[i * 3 + j];
 		}
 	}
 }
@@ -209,10 +226,10 @@ void get_result(const unordered_map<int, VectorXd>& centers,
 	{
 		kernels_normalized[i] = kernels[i].normalized();
 	}
-	combination_kernels(kernels_normalized);
+	combination_kernels(kernels);
+	
 	//double max_val;
 	set<int> index_set;
-//#pragma parallel omp for
 	for (auto v : centers)
 	{
 		int index = find_most_similar(v.second.normalized(), kernels_normalized);
@@ -259,7 +276,7 @@ void get_result(const unordered_map<int, VectorXd>& centers,
 
 void gaussian(const unordered_map<int, VectorXd>& centers)
 {
-	img_output = Mat(Size(img.cols, img.rows), CV_8UC1);
+	img_output = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(255, 0, 0));
 	/*vector<VectorXd> centers_vec(centers.size(), VectorXd(9));  //to do->hash¡¢unique
 	
 	for (int i=0;i<centers.size();i++)
@@ -280,11 +297,11 @@ void gaussian(const unordered_map<int, VectorXd>& centers)
 	}*/
 	Performance p;
 	// 1.8 0.7
-	/*for (double sigma = 0.6; sigma < 0.8; sigma+=0.01)
+	/*for (double sigma = 0.6; sigma < 0.7; sigma+=0.01)
 	{
 		compute_sigma(centers, 16, sigma);
 	}*/
 	//compute_sigma(centers, 16, 0.66);
-	get_result(centers, 16, 0.66);
+	get_result(centers, 16, 0.67);
 	p.endAndPrint();
 }
