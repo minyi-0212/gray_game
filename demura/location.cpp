@@ -96,11 +96,12 @@ void optimize_conner(vector<Point>& corner, int i)
 	}
 }
 
+//void find_OLED_location(unordered_map<int, VectorXd>& centers)
 void find_OLED_location(unordered_map<int, VectorXd>& centers)
 {
 	Performance p;
 	img = imread("G32.bmp");
-	Mat img_copy = img;
+	Mat img_copy = img.clone();
 	cvtColor(img, img, CV_BGR2GRAY);
 	IMG_WIDTH = img.cols;
 	int i0 = -1, i1, j0 = -1, j1;
@@ -439,7 +440,7 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers)
 
 	// 3
 	{
-		const int low_limit = 5, initail_interval = 6;
+		const int low_limit = 5, initail_interval = 5;
 		vector<Point> line_head;
 		{
 			float k = (corner[1].y - corner[5].y)*1.0 / (corner[1].x - corner[5].x),
@@ -498,7 +499,8 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers)
 					img.at<byte>(line_head[hi].y + 1, line_head[hi].x - 1),
 					img.at<byte>(line_head[hi].y + 1, line_head[hi].x),
 					img.at<byte>(line_head[hi].y + 1, line_head[hi].x + 1);
-				centers[line_head[hi].y*IMG_WIDTH + line_head[hi].x] = center_region;
+				//centers[line_head[hi].y*IMG_WIDTH + line_head[hi].x] = center_region;
+				centers.insert({ line_head[hi].y*IMG_WIDTH + line_head[hi].x, center_region });
 				last = line_head[hi];
 				for (int x = line_head[hi].x++; x < corner[3].x; x++)
 				{
@@ -516,6 +518,7 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers)
 						}
 						update(p);
 						update(p);
+						update(p);
 						/*update(p);
 						update(p);*/
 						center_region << img.at<byte>(p.y - 1, p.x - 1),
@@ -529,8 +532,10 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers)
 							img.at<byte>(p.y + 1, p.x - 1),
 							img.at<byte>(p.y + 1, p.x),
 							img.at<byte>(p.y + 1, p.x + 1);
-						//if(img.at<byte>(p.y, p.x) > 12)
-							centers[p.y*IMG_WIDTH+p.x] = center_region;
+						if(img.at<byte>(p.y, p.x) > 12)
+							//centers[p.y*IMG_WIDTH+p.x] = center_region;
+							centers.insert({ p.y*IMG_WIDTH + p.x, center_region });
+
 						last = p;
 					}
 				}
@@ -551,12 +556,30 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers)
 				}
 		}
 		cout <<"again cnt: "<< cnt << endl;*/
+		
 		for (auto p : centers)
 		{
 			img_copy.at<Vec3b>(p.first / IMG_WIDTH, p.first % IMG_WIDTH) = Vec3b(0, 255, 0);
 		}
 		cout << "size of head points: " << line_head.size() << endl;
 		cout << 960*720*2 << ", size of points: " << centers.size() << endl;
-		imwrite("./output/G32_all.png", img_copy * 8);
+		imwrite("./output/G32_pick_point.png", img_copy * 8);
+
+		img_copy = Mat::zeros(img_copy.size(), CV_8UC1);
+		vector<int> region({ -1,0,1 });
+		for (auto p : centers)
+		{
+			for (int i = 0; i < region.size(); i++)
+			{
+				for (int j = 0; j < region.size(); j++)
+				{
+					int x = p.first % IMG_WIDTH + region[j],
+						y = p.first / IMG_WIDTH + region[i];
+					img_copy.at<byte>(y, x) = img.at<byte>(y, x);
+				}
+			}
+		}
+		imwrite("./output/G32_after_set.png", img_copy);
+		imwrite("./output/G32_after_set.bmp", img_copy);
 	}
 }
