@@ -1,7 +1,6 @@
 #include "gaussian_filter.h"
 #include <Eigen/Dense>
 #include <set>
-#include <direct.h>
 
 const double PI = 4.0*atan(1.0); //‘≤÷‹¬ ¶–∏≥÷µ
 using namespace std;
@@ -118,6 +117,17 @@ void draw_pic_with_kernel(const int y, const int x,
 	}
 }
 
+void draw_pic_with_scalar(const int y, const int x, const Vec3b val, Mat& img)
+{
+	for (int i = 0; i < region.size(); i++)
+	{
+		for (int j = 0; j < region.size(); j++)
+		{
+			img.at<Vec3b>(y + region[i], x + region[j]) = val;
+		}
+	}
+}
+
 void match(const unordered_map<int, VectorXd>& centers,
 	const vector<VectorXd>& kernels)
 {
@@ -171,11 +181,16 @@ double compute_sigma(const unordered_map<int, VectorXd>& centers,
 }
 
 //#define SIGMA_COMPUTE
-void compute_dumura(const unordered_map<int, VectorXd>& centers)
+void compute_dumura(const unordered_map<int, VectorXd>& centers,
+	vector<Point>& centers_error)
 {
 	Performance p;
-	_mkdir("./output");
 	img_output = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0));
+	for (auto ce : centers_error)
+	{
+		draw_pic_with_scalar(ce.y, ce.x, Vec3b(0, 0, 255), img_output);
+		//img_output.at<Vec3b>(ce.y, ce.x) = Vec3b(0, 0, 255);
+	}
 	vector<VectorXd> kernels(sample_of_center*sample_of_center, VectorXd(9));
 #ifdef SIGMA_COMPUTE
 	double sigma = 0.5, loss = 100000, loss_old, flag = -1;
