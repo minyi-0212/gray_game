@@ -1,4 +1,4 @@
 #pragma once
 #include "main.h"
 
-void gaussian(const std::unordered_map<int, Eigen::VectorXd>& centers);
+void compute_dumura(const std::unordered_map<int, Eigen::VectorXd>& centers);
