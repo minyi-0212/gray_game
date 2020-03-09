@@ -1,6 +1,6 @@
 #include "gaussian_filter.h"
 #include <Eigen/Dense>
-#include <set>
+#include <fstream>
 
 const double PI = 4.0*atan(1.0); //‘≤÷‹¬ ¶–∏≥÷µ
 using namespace std;
@@ -128,7 +128,8 @@ void draw_pic_with_scalar(const int y, const int x, const Vec3b val, Mat& img)
 	}
 }
 
-void match(const unordered_map<int, VectorXd>& centers,
+void match(const vector<vector<Point>>& centers_vec,
+	const vector<vector<VectorXd>>& data,
 	const vector<VectorXd>& kernels)
 {
 	vector<VectorXd> kernels_normalized;
@@ -140,16 +141,36 @@ void match(const unordered_map<int, VectorXd>& centers,
 	
 	Mat img_480 = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0));
 	set<int> index_set;
-	for (auto v : centers)
+	ofstream out("./output/result.csv");
+	bool need_indent = true;
+	for (int vj = 0; vj < centers_vec.size(); vj++)
 	{
-		int index = find_most_similar(v.second.normalized(), kernels_normalized);
-		index_set.insert(index);
-		MatrixXd A(kernels[index]);
-		draw_pic_with_kernel(v.first / IMG_WIDTH, v.first % IMG_WIDTH,
-			A.colPivHouseholderQr().solve(v.second)[0], kernels[index], img_output);
-		draw_pic_with_kernel(v.first / IMG_WIDTH, v.first % IMG_WIDTH,
-			480, kernels[index], img_480);
+		if (need_indent)
+		{
+			out << "-1,";
+		}
+		need_indent = !need_indent;
+		for (int vi = 0; vi < centers_vec[vj].size(); vi++)
+		{
+			if (data[vj][vi][0] < 0)
+			{
+				out << 0 << ",,";
+				continue;
+			}
+			int index = find_most_similar(data[vj][vi].normalized(), kernels_normalized);
+			index_set.insert(index);
+			MatrixXd A(kernels[index]);
+			double value = A.colPivHouseholderQr().solve(data[vj][vi])[0];
+			draw_pic_with_kernel(centers_vec[vj][vi].y, centers_vec[vj][vi].x, 
+				value, kernels[index], img_output);
+			draw_pic_with_kernel(centers_vec[vj][vi].y, centers_vec[vj][vi].x, 
+				480, kernels[index], img_480);
+			//out << v.first / IMG_WIDTH << "," << v.first % IMG_WIDTH << "," << value << endl;
+			out << value << ",-1,";
+		}
+		out << endl;
 	}
+	out.close();
 	cout <<"used kernels count: "<< index_set.size() << endl;
 	imwrite("./output/result_of_kernels.png", img_output);
 	imwrite("./output/result_of_480.png", img_480);
@@ -159,7 +180,7 @@ void match(const unordered_map<int, VectorXd>& centers,
 	imwrite("./output/result_of_480.bmp", img_480);
 }
 
-double compute_sigma(const unordered_map<int, VectorXd>& centers,
+double compute_sigma(const vector<vector<VectorXd>>& data,
 	vector<VectorXd>& kernels, const double sigma)
 {
 	Performance p;
@@ -169,11 +190,16 @@ double compute_sigma(const unordered_map<int, VectorXd>& centers,
 		kernels[i].normalize();
 	}
 	double loss = 0, tmp_dot;
-	for (auto v : centers)
+	for (int vj = 0; vj < data.size(); vj++)
 	{
-		int tmp_k_index = find_most_similar(v.second.normalized(), kernels);
-		VectorXd vk(v.second.normalized() - kernels[tmp_k_index]);
-		loss += vk.dot(vk);
+		for (int vi = 0; vi < data[vj].size(); vi++)
+		{
+			if (data[vj][vi][0] < 0)
+				continue;
+			int tmp_k_index = find_most_similar(data[vj][vi].normalized(), kernels);
+			VectorXd vk(data[vj][vi].normalized() - kernels[tmp_k_index]);
+			loss += vk.dot(vk);
+		}
 	}
 	cout << "compute loss: " << p.end() << "s" << endl;
 	cout << "sigma: " << sigma << ", loss: " << loss << endl << endl;
@@ -181,15 +207,16 @@ double compute_sigma(const unordered_map<int, VectorXd>& centers,
 }
 
 //#define SIGMA_COMPUTE
-void compute_dumura(const unordered_map<int, VectorXd>& centers,
+void compute_dumura(vector<vector<Point>>& centers_vec,
+	vector<vector<VectorXd>>& data,
 	vector<Point>& centers_error)
 {
 	Performance p;
 	img_output = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0));
 	for (auto ce : centers_error)
 	{
-		draw_pic_with_scalar(ce.y, ce.x, Vec3b(0, 0, 255), img_output);
-		//img_output.at<Vec3b>(ce.y, ce.x) = Vec3b(0, 0, 255);
+		//draw_pic_with_scalar(ce.y, ce.x, Vec3b(0, 0, 255), img_output);
+		img_output.at<Vec3b>(ce.y, ce.x) = Vec3b(0, 0, 255);
 	}
 	vector<VectorXd> kernels(sample_of_center*sample_of_center, VectorXd(9));
 #ifdef SIGMA_COMPUTE
@@ -197,7 +224,7 @@ void compute_dumura(const unordered_map<int, VectorXd>& centers,
 	for (; sigma < 2; sigma += 0.01)
 	{
 		loss_old = loss;
-		loss = compute_sigma(centers, kernels, sigma);
+		loss = compute_sigma(data, kernels, sigma);
 		if (loss - loss_old > 0 && flag < 0)
 		{
 			sigma -= 0.01;
@@ -207,10 +234,10 @@ void compute_dumura(const unordered_map<int, VectorXd>& centers,
 	}
 	cout << "sigma:" << sigma << endl;
 #else
-	double sigma = 0.6;
+	double sigma = 0.61;
 #endif
 	get_kernels(kernels, sigma);
 	combination_kernels(kernels);
-	match(centers, kernels);
+	match(centers_vec, data, kernels);
 	p.endAndPrint();
 }

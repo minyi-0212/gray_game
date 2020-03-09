@@ -124,12 +124,14 @@
     <ClCompile Include="location.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="Performance.cpp" />
+    <ClCompile Include="preprocess.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gaussian_filter.h" />
     <ClInclude Include="location.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="Performance.h" />
+    <ClInclude Include="preprocess.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

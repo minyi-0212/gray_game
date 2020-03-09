@@ -1,16 +1,23 @@
 #include "location.h"
 #include <fstream>
+#include <stack>
+
 using namespace std;
 using namespace cv;
 using namespace Eigen;
 
 Mat img;
 int IMG_WIDTH;
-vector<int> t_update_small({ -2, -1, 0, 1, 2 });
-vector<int> t_update_large({ -2, -1, 0, 1, 2 });
+//vector<int> t_update_small({ -2, -1, 0, 1, 2 });
+//vector<int> t_update_large({ -2, -1, 0, 1, 2 });
+//vector<int> t_small({ -2, -1, 0, 1, 2 });
+//vector<int> t_large({ -8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,-8 });
+
+vector<int> t_update_small({ -1, 0, 1 });
+vector<int> t_update_large({ -1, 0, 1 });
 vector<int> t_small({ -2, -1, 0, 1, 2 });
-//vector<int> t_large({ -9,-8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8,9 });
-vector<int> t_large({ -8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,-8 });
+vector<int> t_large({ -8,-7,-6,-5,-4,-3,-2,-1,0,1,2,3,4,5,6,7,8 });
+vector<int> t_right_large({ -5,-4,-3,-2,-1,0,1,2,3,4,5 });
 void update(Point& p)
 {
 	Point tmp(p);
@@ -96,13 +103,27 @@ void optimize_conner(vector<Point>& corner, int i)
 	}
 }
 
-//void find_OLED_location(unordered_map<int, VectorXd>& centers)
-void find_OLED_location(unordered_map<int, VectorXd>& centers,
+void update_line_head_max(Point& p)
+{
+	Point tmp = p;
+	for (int tx = 0; tx < t_right_large.size(); tx++)
+	{
+		if (img.at<byte>(p.y, p.x)
+			< img.at<byte>(tmp.y, tmp.x + t_right_large[tx]))
+		{
+			p.x = tmp.x + t_right_large[tx];
+		}
+	}
+}
+
+//void find_OLED_location(map<int, VectorXd>& centers)
+void find_OLED_location(vector<vector<Point>>& centers_vec,
+	vector<vector<VectorXd>>& data,
 	vector<Point>& centers_error)
 {
 	Performance p;
-	img = imread("G32.bmp");
-	imwrite("G32.png", img);
+	img = imread("./input2/5.85_B16.bmp");
+	imwrite("./input2/B16.png", img);
 	Mat img_copy = img.clone();
 	cvtColor(img, img, CV_BGR2GRAY);
 	IMG_WIDTH = img.cols;
@@ -306,6 +327,8 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 	for (int i = 0; i < corner.size(); i += 2)
 	{
 		optimize_conner(corner, i);
+		cout << corner[i] << endl;
+		cout << corner[i+1] << endl;
 	}
 
 	// draw corner
@@ -444,11 +467,12 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 	{
 		vector<Point> line_head;
 		{
+			vector<vector<Point>> line_head_two(2);
 			const int head_low_limit = 5, head_initail_interval = 6;
 			float k = (corner[1].y - corner[5].y)*1.0 / (corner[1].x - corner[5].x),
 				b1 = corner[1].y - corner[1].x * k,
 				b2 = corner[0].y - corner[0].x * k;
-			for (float y = corner[1].y; y <= corner[5].y; y++)
+			/*for (float y = corner[1].y; y <= corner[5].y; y++)
 			{
 				if (img.at<byte>(y, (y - b1) / k) > head_low_limit &&
 					(line_head.size() == 0 || y - line_head[line_head.size() - 1].y > head_initail_interval))
@@ -482,10 +506,63 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 					update(p);
 					line_head.push_back(p);
 				}
+			}*/
+			for (float y = corner[1].y; y <= corner[5].y; y++)
+			{
+				if (img.at<byte>(y, (y - b1) / k) > head_low_limit &&
+					(line_head_two[0].size() == 0 
+						|| y - line_head_two[0][line_head_two[0].size() - 1].y > head_initail_interval))
+				{
+					Point p((y - b1) / k, y), tmp(p);
+					for (int i = 0; i < t_small.size(); i++)
+					{
+						if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y + t_small[i], tmp.x))
+						{
+							p.y = tmp.y + t_small[i];
+						}
+					}
+					update(p);
+					line_head_two[0].push_back(p);
+				}
 			}
+			for (float y = corner[0].y; y <= corner[4].y; y++)
+			{
+				if (img.at<byte>(y, (y - b2) / k) > head_low_limit &&
+					(line_head_two[1].size() == 0 
+						|| y - line_head_two[1][line_head_two[1].size() - 1].y > head_initail_interval))
+				{
+					Point p((y - b2) / k, y), tmp(p);
+					for (int i = 0; i < t_small.size(); i++)
+					{
+						if (img.at<byte>(p.y, p.x) < img.at<byte>(tmp.y + t_small[i], tmp.x))
+						{
+							p.y = tmp.y + t_small[i];
+						}
+					}
+					update(p);
+					line_head_two[1].push_back(p);
+				}
+			}
+			if (line_head_two[0].size() != line_head_two[1].size())
+			{
+				cout << "something error :: find the head point, with size "
+					<< line_head_two[0].size()<< "!=" << line_head_two[1].size() << endl;
+			}
+			line_head.resize(line_head_two[0].size()*2);
+			for (int i = 0; i < line_head_two[0].size(); i++)
+			{
+				line_head[2 * i] = line_head_two[0][i];
+				line_head[2 * i + 1] = line_head_two[1][i];
+			}
+		}
 
-			k = (corner[0].y - corner[2].y)*1.0 / (corner[0].x - corner[2].x);
-			VectorXd center_region(9);
+		centers_vec.resize(line_head.size());
+		data.resize(line_head.size());
+		set<int> center_index_set;
+		{
+			float k = (corner[0].y - corner[2].y)*1.0 / (corner[0].x - corner[2].x);
+			VectorXd center_region(9), center_error_region(9);
+			center_error_region << -1, -1, -1, -1, -1, -1, -1, -1, -1;
 			Point last;
 			int tmp_interval;
 			for (int hi = 0; hi < line_head.size(); hi++)
@@ -494,16 +571,18 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 				center_region << img.at<byte>(line_head[hi].y - 1, line_head[hi].x - 1),
 					img.at<byte>(line_head[hi].y - 1, line_head[hi].x),
 					img.at<byte>(line_head[hi].y - 1, line_head[hi].x + 1),
-
 					img.at<byte>(line_head[hi].y, line_head[hi].x - 1),
 					img.at<byte>(line_head[hi].y, line_head[hi].x),
 					img.at<byte>(line_head[hi].y, line_head[hi].x + 1),
-
 					img.at<byte>(line_head[hi].y + 1, line_head[hi].x - 1),
 					img.at<byte>(line_head[hi].y + 1, line_head[hi].x),
 					img.at<byte>(line_head[hi].y + 1, line_head[hi].x + 1);
 				//centers[line_head[hi].y*IMG_WIDTH + line_head[hi].x] = center_region;
-				centers.insert({ line_head[hi].y*IMG_WIDTH + line_head[hi].x, center_region });
+				//centers.insert({ line_head[hi].y*IMG_WIDTH + line_head[hi].x, center_region });
+				center_index_set.insert(line_head[hi].y*IMG_WIDTH + line_head[hi].x);
+				centers_vec[hi].push_back(line_head[hi]);
+				data[hi].push_back(center_region);
+
 				last = line_head[hi];
 				tmp_interval = 8;
 				for (int x = line_head[hi].x++; x < corner[3].x + 2; x++)
@@ -527,20 +606,24 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 						if (img.at<byte>(p.y, p.x) < 12
 							|| p.x - last.x < 6 || p.x - last.x > 11
 							|| p.y - last.y > 2
-							|| centers.find(p.y*IMG_WIDTH + p.x)!=centers.end())
+							//|| centers.find(p.y*IMG_WIDTH + p.x) != centers.end())
+							|| center_index_set.find(p.y*IMG_WIDTH + p.x) != center_index_set.end())
 						{
 							centers_error.push_back(tmp);
-							/*cout << tmp << " , " << p <<" , " << last << " , " 
+							/*cout << tmp << " , " << p <<" , " << last << " , "
 								<< (p.x - last.x < 6) <<","
-								<< (p.x - last.x > 11) << "," 
+								<< (p.x - last.x > 11) << ","
 								<< (p.y - last.y > 2) << ","
 								<< (centers.find(p.y*IMG_WIDTH + p.x) != centers.end())<< " "
 								<< tmp_interval  << endl;*/
+
+							centers_vec[hi].push_back(tmp);
+							data[hi].push_back(center_error_region);
+
 							p = tmp;
 						}
 						else
 						{
-
 							center_region << img.at<byte>(p.y - 1, p.x - 1),
 								img.at<byte>(p.y - 1, p.x),
 								img.at<byte>(p.y - 1, p.x + 1),
@@ -552,7 +635,10 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 								img.at<byte>(p.y + 1, p.x - 1),
 								img.at<byte>(p.y + 1, p.x),
 								img.at<byte>(p.y + 1, p.x + 1);
-							centers.insert({ p.y*IMG_WIDTH + p.x, center_region });
+							//centers.insert({ p.y*IMG_WIDTH + p.x, center_region });
+							center_index_set.insert(p.y*IMG_WIDTH + p.x);
+							centers_vec[hi].push_back(p);
+							data[hi].push_back(center_region);
 							tmp_interval = abs(p.x - last.x - tmp_interval) < 2 ? p.x - last.x : tmp_interval;
 						}
 						//centers.insert({ p.y*IMG_WIDTH + p.x, center_region });
@@ -577,31 +663,37 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 		}
 		cout <<"again cnt: "<< cnt << endl;*/
 		
-		for (auto p : centers)
+		for (int vj=0;vj<centers_vec.size();vj++)
 		{
-			img_copy.at<Vec3b>(p.first / IMG_WIDTH, p.first % IMG_WIDTH) = Vec3b(0, 255, 0);
+			for (int vi = 0; vi < centers_vec[vj].size(); vi++)
+			{
+				img_copy.at<Vec3b>(centers_vec[vj][vi].y, centers_vec[vj][vi].x) = Vec3b(0, 255, 0);
+			}
 		}
 		for (auto ce : centers_error)
 		{
 			img_copy.at<Vec3b>(ce.y, ce.x) = Vec3b(0, 0, 255);
 		}
 		cout << "size of head points: " << line_head.size() << endl;
-		cout << 960 * 720 * 2 << ", size of points: " << centers.size() << endl;
+		cout << 960 * 720 * 2 << ", size of points: " << center_index_set.size() << endl;
 		cout << "size of error points: " << centers_error.size() << endl;
 		imwrite("./output/G32_pick_point.png", img_copy * 8);
 
 		img_copy = Mat(img_copy.size(), CV_8UC3, Scalar(0,0,0));
 		vector<int> region({ -1,0,1 });
-		for (auto p : centers)
+		for (int vj = 0; vj < centers_vec.size(); vj++)
 		{
-			for (int i = 0; i < region.size(); i++)
+			for (int vi = 0; vi < centers_vec[vj].size(); vi++)
 			{
-				for (int j = 0; j < region.size(); j++)
+				for (int i = 0; i < region.size(); i++)
 				{
-					int x = p.first % IMG_WIDTH + region[j],
-						y = p.first / IMG_WIDTH + region[i];
-					byte t = img.at<byte>(y, x);
-					img_copy.at<Vec3b>(y, x) = Vec3b(t, t, t);
+					for (int j = 0; j < region.size(); j++)
+					{
+						int x = centers_vec[vj][vi].x + region[j],
+							y = centers_vec[vj][vi].y + region[i];
+						byte t = img.at<byte>(y, x);
+						img_copy.at<Vec3b>(y, x) = Vec3b(t, t, t);
+					}
 				}
 			}
 		}
@@ -620,4 +712,207 @@ void find_OLED_location(unordered_map<int, VectorXd>& centers,
 		//cvtColor(img_copy, img_copy, CV_BGR2GRAY);
 		//imwrite("./output/G32_after_set.bmp", img_copy);
 	}
+}
+
+void find_OLED_location_with_mask(vector<vector<Point>>& centers_vec,
+	vector<vector<VectorXd>>& data,
+	vector<Point>& centers_error)
+{
+	Performance p;
+	img = imread("./input2/5.85_B16.bmp");
+	Mat mask = imread("./input2/mask.png", CV_8UC1);
+	if (img.data == NULL || mask.data == NULL)
+	{
+		cout << "image or mask read error." << endl;
+		return ;
+	}
+	//imwrite("./input2/B16.png", img);
+	Mat img_copy = img.clone();
+	cvtColor(img, img, CV_BGR2GRAY);
+	IMG_WIDTH = img.cols;
+
+	Performance pp;
+	vector<Point> line_head;
+	{
+		Point p_start(-1,-1);
+		const int head_low_limit = 5;
+		int head_initail_interval_x = 4, head_initail_interval_y = 4;
+		// find first point
+		for (int y = 0; y < mask.rows; y++)
+		{
+			for (int x = 0; x < mask.cols; x++)
+			{
+				if (mask.at<byte>(y, x) > 0)
+				{
+					p_start.x = x;
+					p_start.y = y;
+					break;
+				}
+			}
+			if (p_start.x != -1)
+				break;
+		}
+		cout << p_start << endl;
+		update(p_start);
+		for (int x = 0; x < mask.cols; x++)
+		{
+			if (mask.at<byte>(p_start.y, x) > 0
+				&& img.at<byte>(p_start.y, x) > head_low_limit)
+			{
+				p_start.x = x;
+				break;
+			}
+		}
+		update_line_head_max(p_start);
+		update(p_start);
+		cout << p_start << endl;
+		//line_head.push_back(p_start);
+
+		// find head point
+		int i1, tmp = img.cols / 2;;
+		for (int i = img.rows - 1; i > 0; i--)
+		{
+			if (img.at<byte>(i, p_start.x) > head_low_limit
+				|| img.at<byte>(i, p_start.x - head_initail_interval_x) > head_low_limit)
+			{
+				i1 = i;
+				break;
+			}
+		}
+		cout << i1 << endl;
+		while(p_start.y < i1)
+		{
+			if(line_head.size()==0 || p_start.y - line_head[line_head.size()-1].y > 3)
+				line_head.push_back(p_start);
+			p_start.x += head_initail_interval_x;
+			p_start.y += head_initail_interval_y;
+			update_line_head_max(p_start);
+			update(p_start);
+			head_initail_interval_x *= -1;
+		}
+		cout << "head size: " << line_head.size() << endl;
+	}
+	{
+		stack<Point> stack_of_points;
+		Point cur, last;
+		const int low_limit = 10;
+		int  interval_x = 10;
+		centers_vec.resize(line_head.size());
+		data.resize(line_head.size());
+		for (int hi = 0; hi < line_head.size(); hi++)
+		//int hi = 0;
+		{
+			VectorXd center_region(9), center_error_region(9);
+			center_error_region << -1, -1, -1, -1, -1, -1, -1, -1, -1;
+			// left
+			cur = line_head[hi];
+			stack_of_points.push(cur);
+			while (mask.at<byte>(cur.y, cur.x) > 0
+				/*&& mask.at<byte>(cur.y, cur.x - interval_x) > 0*/)
+			{
+				last = cur;
+				cur.x -= interval_x;
+				if (mask.at<byte>(cur.y, cur.x) == 0)
+					break;
+				update(cur);
+				update(cur);
+				if (mask.at<byte>(cur.y, cur.x) == 0)
+					break;
+				stack_of_points.push(cur);
+				if (img.at<byte>(cur.y, cur.x) < low_limit || abs(cur.y - last.y) > 1)
+				{
+					cur = last;
+					cur.x -= interval_x;
+				}
+			}
+			while (!stack_of_points.empty())
+			{
+				last = cur;
+				cur = stack_of_points.top();
+				stack_of_points.pop();
+				if (img.at<byte>(cur.y, cur.x) < low_limit || abs(cur.y - last.y) > 1)
+				{
+					cur = last;
+					cur.x += interval_x;
+					centers_error.push_back(cur);
+
+					centers_vec[hi].push_back(cur);
+					data[hi].push_back(center_error_region);
+				}
+				else
+				{
+					centers_vec[hi].push_back(cur);
+					center_region << img.at<byte>(cur.y - 1, cur.x - 1),
+						img.at<byte>(cur.y - 1, cur.x),
+						img.at<byte>(cur.y - 1, cur.x + 1),
+
+						img.at<byte>(cur.y, cur.x - 1),
+						img.at<byte>(cur.y, cur.x),
+						img.at<byte>(cur.y, cur.x + 1),
+
+						img.at<byte>(cur.y + 1, cur.x - 1),
+						img.at<byte>(cur.y + 1, cur.x),
+						img.at<byte>(cur.y + 1, cur.x + 1);
+					data[hi].push_back(center_region);
+				}
+			}
+
+			// right
+			cur = line_head[hi];
+			while (1 /*mask.at<byte>(cur.y, cur.x) > 0
+				&& mask.at<byte>(cur.y, cur.x + interval_x) > 0*/)
+			{
+				last = cur;
+				cur.x += interval_x;
+				if (mask.at<byte>(cur.y, cur.x) == 0) {
+					break;
+				}
+				update(cur);
+				update(cur);
+				if (mask.at<byte>(cur.y, cur.x) == 0) {
+					break;
+				}
+				if (img.at<byte>(cur.y, cur.x) < low_limit || abs(cur.y - last.y) > 1)
+				{
+					cur = last;
+					cur.x += interval_x;
+					centers_error.push_back(cur);
+
+					centers_vec[hi].push_back(cur);
+					data[hi].push_back(center_error_region);
+				}
+				else
+				{
+					centers_vec[hi].push_back(cur);
+					center_region << img.at<byte>(cur.y - 1, cur.x - 1),
+						img.at<byte>(cur.y - 1, cur.x),
+						img.at<byte>(cur.y - 1, cur.x + 1),
+
+						img.at<byte>(cur.y, cur.x - 1),
+						img.at<byte>(cur.y, cur.x),
+						img.at<byte>(cur.y, cur.x + 1),
+
+						img.at<byte>(cur.y + 1, cur.x - 1),
+						img.at<byte>(cur.y + 1, cur.x),
+						img.at<byte>(cur.y + 1, cur.x + 1);
+					data[hi].push_back(center_region);
+				}
+			}
+		}
+	}
+	pp.endAndPrint();
+
+	for (auto p : centers_vec)
+		for(auto pp: p)
+			img_copy.at<Vec3b>(pp.y, pp.x) = Vec3b(0, 0, 255);
+	/*for (auto p : line_head)
+		img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 0, 255);*/
+	cout <<"centers_error size : "<< centers_error.size() << endl;
+	for (auto p : centers_error)
+	{
+		img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 0);
+		cout << p << endl;
+	}
+	imwrite("./output/B16_selected_points.png", img_copy);
+	p.endAndPrint();
 }

@@ -1,5 +1,6 @@
 #include "location.h"
 #include "gaussian_filter.h"
+#include "preprocess.h"
 #include <direct.h>
 using namespace std;
 using namespace cv;
@@ -40,11 +41,17 @@ int main()
 	//test_g32();
 
 	_mkdir("./output");
+	preprocess("./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp",
+		"./input2/mask.png");
+
 	vector<Point> centers_error;
-	unordered_map<int, VectorXd> centers(2000000);
-	find_OLED_location(centers, centers_error);
+	//map<int, VectorXd> centers;
+	vector<vector<Point>> centers_vec;
+	vector<vector<VectorXd>> data;
+	//find_OLED_location(centers_vec, data, centers_error);
+	find_OLED_location_with_mask(centers_vec, data, centers_error);
 	cout << "--------------------" << endl;
-	//compute_dumura(centers, centers_error);
+	compute_dumura(centers_vec, data, centers_error);
 
 	system("pause");
 	return 0;
