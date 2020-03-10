@@ -40,16 +40,17 @@ int main()
 {
 	//test_g32();
 
-	_mkdir("./output");
-	preprocess("./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp",
-		"./input2/mask.png");
+	_mkdir("./output_b");
+	/*preprocess("./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp",
+		"./input2/mask.png");*/
 
 	vector<Point> centers_error;
 	//map<int, VectorXd> centers;
 	vector<vector<Point>> centers_vec;
 	vector<vector<VectorXd>> data;
 	//find_OLED_location(centers_vec, data, centers_error);
-	find_OLED_location_with_mask(centers_vec, data, centers_error);
+	bool is_green = false;
+	find_OLED_location_with_mask(centers_vec, data, centers_error, is_green);
 	cout << "--------------------" << endl;
 	compute_dumura(centers_vec, data, centers_error);
 
