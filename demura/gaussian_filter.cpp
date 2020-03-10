@@ -19,8 +19,9 @@ void output(const VectorXd& a)
 	cout << a[8] << "]" << endl;
 }
 
-const int sample_of_center = 64;
+const int sample_of_center = 64, base = sample_of_center* sample_of_center;
 const double center_interval = 1.0 / (sample_of_center-1);
+
 const int sample_of_guass_point = 64;
 const double point_interval = 1.0 / sample_of_guass_point;
 
@@ -52,6 +53,11 @@ void compute_kernel(VectorXd& k,
 	}
 }
 
+void rotate_kernel_degree_90(const VectorXd& k, VectorXd& to)
+{
+	to << k(6), k(3), k(0), k(7), k(4), k(1), k(8), k(5), k(2);
+}
+
 void get_kernels(vector<VectorXd>& kernels, const double sigmax, const double sigmay)
 {
 	double cx_begin = 1, cy_begin = 1;
@@ -65,6 +71,19 @@ void get_kernels(vector<VectorXd>& kernels, const double sigmax, const double si
 				sigmax, sigmay);
 		}
 	}
+	//int base = index;
+	cout << "need rotate " << kernels.size() / base - 1 << " times." << endl;
+	while (index < kernels.size())
+	{
+		rotate_kernel_degree_90(kernels[index - base], kernels[index++]);
+		for (int ii =0;ii< index-1;ii++)
+			if (kernels[index - 1] == kernels[ii])
+			{
+				cout << "equal " << (index-1) / base <<","<< (index-1) % base << endl;
+				break;
+			}
+	}
+	cout << index << "," << sample_of_center * sample_of_center << endl;
 }
 
 void combination_kernels(const vector<VectorXd>& kernels)
@@ -86,7 +105,7 @@ void combination_kernels(const vector<VectorXd>& kernels)
 			}
 		}
 	}
-	imwrite("./output_b/kernels_new.png", k_img);
+	imwrite("./output/kernels_new.png", k_img);
 }
 
 int find_most_similar(const VectorXd& point, const vector<VectorXd>& kernels)
@@ -145,7 +164,7 @@ void match(const vector<vector<Point>>& centers_vec,
 	Mat img_480 = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0)),
 		img_ones = Mat(Size(5000, 1500), CV_8UC3, Scalar(0, 0, 0));
 	set<int> index_set;
-	ofstream out("./output_b/result.csv");
+	ofstream out("./output/result.csv");
 	bool need_indent = true;
 	VectorXd ones(9);
 	ones << 1, 1, 1,
@@ -173,7 +192,16 @@ void match(const vector<vector<Point>>& centers_vec,
 				value, kernels[index], img_output);
 			draw_pic_with_kernel(centers_vec[vj][vi].y, centers_vec[vj][vi].x, 
 				480, kernels[index], img_480);
-			img_ones.at<Vec3b>(vj, 2 * vi + vj % 2) = Vec3b(value / 12, 0, 0);
+			Vec3b color(0, 0, 0);
+			if (index / base == 0)
+				color = Vec3b(value / 12, 0, 0);
+			else if (index / base == 1)
+				color = Vec3b(0, value / 12, 0);
+			else if (index / base == 2)
+				color = Vec3b(0, 0, value / 12);
+			else if (index / base == 3)
+				color = Vec3b(0, value / 12, value / 12);
+			img_ones.at<Vec3b>(vj, 2 * vi + vj % 2) = color;
 			//out << v.first / IMG_WIDTH << "," << v.first % IMG_WIDTH << "," << value << endl;
 			out << value << ",,";
 		}
@@ -181,13 +209,13 @@ void match(const vector<vector<Point>>& centers_vec,
 	}
 	out.close();
 	cout <<"used kernels count: "<< index_set.size() << endl;
-	imwrite("./output_b/result_of_kernels.png", img_output);
-	imwrite("./output_b/result_of_480_mul_kernels.png", img_480);
-	imwrite("./output_b/B16_result.png", img_ones);
+	imwrite("./output/result_of_kernels.png", img_output);
+	imwrite("./output/result_of_480_mul_kernels.png", img_480);
+	imwrite("./output/B16_result.png", img_ones);
 	//cvtColor(img_output, img_output, CV_BGR2GRAY);
 	//cvtColor(img_480, img_480, CV_BGR2GRAY);
-	//imwrite("./output_b/result_of_kernels.bmp", img_output);
-	//imwrite("./output_b/result_of_480.bmp", img_480);
+	//imwrite("./output/result_of_kernels.bmp", img_output);
+	//imwrite("./output/result_of_480.bmp", img_480);
 }
 
 double compute_sigma(const vector<vector<VectorXd>>& data,
@@ -216,7 +244,7 @@ double compute_sigma(const vector<vector<VectorXd>>& data,
 	return loss;
 }
 
-//#define SIGMA_COMPUTE
+#define SIGMA_COMPUTE
 void compute_dumura(vector<vector<Point>>& centers_vec,
 	vector<vector<VectorXd>>& data,
 	vector<Point>& centers_error)
@@ -228,9 +256,9 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		//draw_pic_with_scalar(ce.y, ce.x, Vec3b(0, 0, 255), img_output);
 		img_output.at<Vec3b>(ce.y, ce.x) = Vec3b(0, 0, 255);
 	}
-	vector<VectorXd> kernels(sample_of_center*sample_of_center, VectorXd(9));
+	vector<VectorXd> kernels(sample_of_center*sample_of_center*4, VectorXd(9));
 #ifdef SIGMA_COMPUTE
-	/*ofstream out("./output_b/B16_loss.csv");
+	/*ofstream out("./output/B16_loss.csv");
 	double sigma = 0.5, loss = 100000, loss_old, flag = -1;
 	for (; sigma < 2; sigma += 0.01)
 	{
@@ -246,11 +274,11 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 	}
 	cout << "sigma:" << sigma << endl;
 	out.close();*/
-#if 0
+#if 1
 	char outfile[MAX_PATH];
 	double sigmax = 1.06, sigmay = 0.1, to = 2,
 		loss = 1000000, loss_old, flag = -1;
-	sprintf_s(outfile, "./output_b/%.2f__%.2f,%.2f_c%d_g%d.csv",
+	sprintf_s(outfile, "./output/rotate_%.2f__%.2f,%.2f_c%d_g%d.csv",
 		sigmax, sigmay, to,
 		sample_of_center, sample_of_guass_point);
 	ofstream out(outfile);
@@ -266,7 +294,7 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 	char outfile[MAX_PATH];
 	double sigmax = 0.1, sigmay = 0.91, to = 2,
 		loss = 1000000, loss_old, flag = -1;
-	sprintf_s(outfile, "./output_b/%.2f,%.2f__%.2f_c%d_g%d.csv",
+	sprintf_s(outfile, "./output/rotate_%.2f,%.2f__%.2f_c%d_g%d.csv",
 		sigmax, to, sigmay,
 		sample_of_center, sample_of_guass_point);
 	ofstream out(outfile);

@@ -172,7 +172,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 	//	cout << i0 << " " << i1 << " " << j0 << " " << j1 << endl;
 	//	line(img_copy, Point(j0, i0), Point(j1, i1), Scalar(0, 0, 255), 1);
 	//	line(img_copy, Point(330, 1009), Point(9610, 6231), Scalar(255,0,0), 1);
-	//	imwrite("./output_b/G32_cpoy.png", img_copy);
+	//	imwrite("./output/G32_cpoy.png", img_copy);
 	//	//waitKey(0);
 	//}
 
@@ -229,7 +229,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 		cout << -b / k << endl;
 		vector<Point> cnt_points;
 		const int low_limit = 6;
-		ofstream out("./output_b/one_row.csv");
+		ofstream out("./output/one_row.csv");
 		for (int j = 0; j < img_copy.cols; j++)
 		{
 			if (img_copy.at<byte>(k*j + b, j) > low_limit)
@@ -254,7 +254,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 		}
 		out.close();
 		cout << "size of point in one line: " << cnt_points.size() << endl;
-		imwrite("./output_b/G32_one_row.png", img_copy);
+		imwrite("./output/G32_one_row.png", img_copy);
 	}*/
 
 	// computer the count of points in one bar
@@ -267,7 +267,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 		cout << k << " " << b << endl;
 		cout << -b / k << endl;
 		vector<Point> cnt_points;
-		ofstream out("./output_b/one_column.csv");
+		ofstream out("./output/one_column.csv");
 		for (int y = 0; y < img_copy.rows; y++)
 		{
 			if (img_copy.at<byte>(y, (y - b) / k) > 7)
@@ -294,7 +294,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 		}
 		out.close();
 		cout << "size of point in one line: " << cnt_points.size() << endl;
-		imwrite("./output_b/G32_one_column.png", img_copy * 8);
+		imwrite("./output/G32_one_column.png", img_copy * 8);
 	}*/
 
 	// draw corner
@@ -302,14 +302,14 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 	Mat img_copy = img;
 	line(img_copy, Point(j0, i0), Point(j1, i1), Scalar(0, 0, 255), 1);
 	line(img_copy, Point(330, 1009), Point(9610, 6231), Scalar(255, 0, 0), 1);
-	imwrite("./output_b/G32_cpoy.png", img_copy);*/
+	imwrite("./output/G32_cpoy.png", img_copy);*/
 
 	// draw corner
 	/*cout << i0 << " " << i1 << " " << j0 << " " << j1 << endl;
 	Mat img_copy = img;
 	line(img_copy, Point(j0, i0), Point(j1, i1), Scalar(0, 0, 255), 1);
 	line(img_copy, Point(330, 1009), Point(9610, 6231), Scalar(255, 0, 0), 1);
-	imwrite("./output_b/G32_cpoy.png", img_copy);*/
+	imwrite("./output/G32_cpoy.png", img_copy);*/
 
 	// get more detailed corner
 	/*  0 бнбн 2
@@ -342,7 +342,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 		img_copy.at<byte>(corner[i].y, corner[i].x) = Vec3b(255, 0, 255);
 		img_copy.at<byte>(corner[i+1].y, corner[i+1].x) = Vec3b(0, 255, 255);
 	}
-	imwrite("./output_b/G32_corner.png", img_copy);*/
+	imwrite("./output/G32_corner.png", img_copy);*/
 	pp.endAndPrint();
 
 	//1
@@ -409,7 +409,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 //			img_copy.at<byte>(p.y, p.x) = Vec3b(0, 0, 255);
 //		}
 //
-//		imwrite("./output_b/G32_position.png", img_copy);
+//		imwrite("./output/G32_position.png", img_copy);
 //	}
 
 	// 2
@@ -460,7 +460,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 //		{
 //			img_copy.at<byte>(p.y, p.x) = Vec3b(0, 0, 255);
 //		}
-//		//imwrite("./output_b/G32_position.png", img_copy);
+//		//imwrite("./output/G32_position.png", img_copy);
 //	}
 
 	// 3
@@ -677,7 +677,7 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 		cout << "size of head points: " << line_head.size() << endl;
 		cout << 960 * 720 * 2 << ", size of points: " << center_index_set.size() << endl;
 		cout << "size of error points: " << centers_error.size() << endl;
-		imwrite("./output_b/G32_pick_point.png", img_copy * 8);
+		imwrite("./output/G32_pick_point.png", img_copy * 8);
 
 		img_copy = Mat(img_copy.size(), CV_8UC3, Scalar(0,0,0));
 		vector<int> region({ -1,0,1 });
@@ -708,9 +708,9 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 				}
 			}
 		}
-		imwrite("./output_b/G32_after_set.png", img_copy);
+		imwrite("./output/G32_after_set.png", img_copy);
 		//cvtColor(img_copy, img_copy, CV_BGR2GRAY);
-		//imwrite("./output_b/G32_after_set.bmp", img_copy);
+		//imwrite("./output/G32_after_set.bmp", img_copy);
 	}
 }
 
@@ -929,7 +929,7 @@ void find_OLED_location_with_mask(vector<vector<Point>>& centers_vec,
 			img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 255);
 			cout << p << endl;
 		}
-		imwrite("./output_b/B16_selected_points.png", img_copy);
+		imwrite("./output/B16_selected_points.png", img_copy);
 	}
 	{
 		img_copy = Mat(img_copy.size(), CV_8UC3, Scalar(0, 0, 0));
@@ -950,7 +950,7 @@ void find_OLED_location_with_mask(vector<vector<Point>>& centers_vec,
 				}
 			}
 		}
-		imwrite("./output_b/B16_after_set.png", img_copy);
+		imwrite("./output/B16_after_set.png", img_copy);
 	}
 	p.endAndPrint();
 }

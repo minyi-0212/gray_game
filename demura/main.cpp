@@ -40,7 +40,7 @@ int main()
 {
 	//test_g32();
 
-	_mkdir("./output_b");
+	_mkdir("./output");
 	/*preprocess("./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp",
 		"./input2/mask.png");*/
 
