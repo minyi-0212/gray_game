@@ -35,13 +35,15 @@ void test_g32()
 	imshow("G32", img);
 	waitKey(0);
 }
-
-int main()
+/*
+int xy, // x:0, y:1, no sigma compute:3
+double from, double to, double another, double add, const char* prefix
+*/
+int main(int argc, char* argv[])
 {
 	//test_g32();
-
 	_mkdir("./output");
-	/*preprocess("./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp",
+	/*preprocess("./input2/5.85_G16.bmp", "./input2/5.85_G16.bmp", "./input2/5.85_G16.bmp",
 		"./input2/mask.png");*/
 
 	vector<Point> centers_error;
@@ -49,11 +51,15 @@ int main()
 	vector<vector<Point>> centers_vec;
 	vector<vector<VectorXd>> data;
 	//find_OLED_location(centers_vec, data, centers_error);
-	bool is_green = false;
+	bool is_green = true;
 	find_OLED_location_with_mask(centers_vec, data, centers_error, is_green);
 	cout << "--------------------" << endl;
-	compute_dumura(centers_vec, data, centers_error);
-
+	if (argc >= 7)
+	{
+		cout << "demura..." << endl;
+		compute_dumura(centers_vec, data, centers_error, atoi(argv[1]),
+			atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), argv[6]);
+	}
 	system("pause");
 	return 0;
 }
