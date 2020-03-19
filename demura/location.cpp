@@ -122,8 +122,8 @@ void find_OLED_location(vector<vector<Point>>& centers_vec,
 	vector<Point>& centers_error)
 {
 	Performance p;
-	img = imread("./input2/5.85_G16.bmp");
-	//imwrite("./input2/G16.png", img);
+	img = imread("./input2/5.85_R16.bmp");
+	//imwrite("./input2/R16.png", img);
 	Mat img_copy = img.clone();
 	cvtColor(img, img, CV_BGR2GRAY);
 	IMG_WIDTH = img.cols;
@@ -719,14 +719,14 @@ void find_OLED_location_with_mask(vector<vector<Point>>& centers_vec,
 	vector<Point>& centers_error, bool green)
 {
 	Performance p;
-	img = imread("./input2/5.85_G16.bmp");
+	img = imread("./input2/5.85_R16.bmp");
 	Mat mask = imread("./input2/mask.png", CV_8UC1);
 	if (img.data == NULL || mask.data == NULL)
 	{
 		cout << "image or mask read error." << endl;
 		return ;
 	}
-	//imwrite("./input2/G16.png", img);
+	//imwrite("./input2/R16.png", img);
 	Mat img_copy = img.clone();
 	cvtColor(img, img, CV_BGR2GRAY);
 	IMG_WIDTH = img.cols;
@@ -912,6 +912,7 @@ void find_OLED_location_with_mask(vector<vector<Point>>& centers_vec,
 	{
 		cout << "head size: " << line_head.size() << endl;
 		int sum = 0;
+		cout << centers_vec.size() << "*" << centers_vec[500].size() << endl;
 		for (auto p : centers_vec)
 		{
 			sum += p.size();
@@ -929,7 +930,7 @@ void find_OLED_location_with_mask(vector<vector<Point>>& centers_vec,
 			img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 255);
 			cout << p << endl;
 		}
-		imwrite("./output/G16_selected_points.png", img_copy);
+		imwrite("./output/R16_selected_points.png", img_copy);
 	}
 	{
 		img_copy = Mat(img_copy.size(), CV_8UC3, Scalar(0, 0, 0));
@@ -950,7 +951,7 @@ void find_OLED_location_with_mask(vector<vector<Point>>& centers_vec,
 				}
 			}
 		}
-		imwrite("./output/G16_after_set.png", img_copy);
+		imwrite("./output/R16_after_set.png", img_copy);
 	}
 	p.endAndPrint();
 }

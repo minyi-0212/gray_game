@@ -123,6 +123,7 @@
     <ClCompile Include="gaussian_filter.cpp" />
     <ClCompile Include="location.cpp" />
     <ClCompile Include="main.cpp" />
+    <ClCompile Include="pentile.cpp" />
     <ClCompile Include="Performance.cpp" />
     <ClCompile Include="preprocess.cpp" />
   </ItemGroup>
@@ -130,6 +131,7 @@
     <ClInclude Include="gaussian_filter.h" />
     <ClInclude Include="location.h" />
     <ClInclude Include="main.h" />
+    <ClInclude Include="pentile.h" />
     <ClInclude Include="Performance.h" />
     <ClInclude Include="preprocess.h" />
   </ItemGroup>

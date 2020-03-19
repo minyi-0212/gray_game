@@ -49,6 +49,25 @@ void rotate_xy(double& x, double& y, const double rx, const double ry, const dou
 }
 
 void compute_kernel(VectorXd& k,
+	const double cx, const double cy,
+	const double sigmax, const double sigmay)
+{
+	for (int ki = 0; ki < 9; ki++)
+	{
+		double v = 0;
+		double x = ki % 3, y = ki / 3;
+		for (double yi = point_interval / 2; yi < 1; yi += point_interval)
+		{
+			for (double xi = point_interval / 2; xi < 1; xi += point_interval)
+			{
+				v += gauss_value(x + xi, y + yi, cx, cy, sigmax, sigmay);
+			}
+		}
+		k[ki] = v / sample_of_guass_point / sample_of_guass_point;
+	}
+}
+
+void compute_kernel(VectorXd& k,
 	const double cx, const double cy, 
 	const double sigmax, const double sigmay,
 	const double theta)
@@ -92,15 +111,28 @@ void get_kernels(vector<VectorXd>& kernels, const double sigmax, const double si
 {
 	double cx_begin = 1, cy_begin = 1;
 	int index = 0;
-	for (double yi = 0; yi <= 1; yi += center_interval)
+	if (sigmax == sigmay)
 	{
-		for (double xi = 0; xi <= 1; xi += center_interval)
+		for (double yi = 0; yi <= 1; yi += center_interval)
 		{
-			for (int ri = 0; ri < 4; ri++)
+			for (double xi = 0; xi <= 1; xi += center_interval)
 			{
-				compute_kernel(kernels[index++],
-					cx_begin + xi, cy_begin + yi,
-					sigmax, sigmay, ri * 45);
+				compute_kernel(kernels[index++], cx_begin + xi, cy_begin + yi, sigmax, sigmay);
+			}
+		}
+	}
+	else
+	{
+		for (double yi = 0; yi <= 1; yi += center_interval)
+		{
+			for (double xi = 0; xi <= 1; xi += center_interval)
+			{
+				for (int ri = 0; ri < 4; ri++)
+				{
+					compute_kernel(kernels[index++],
+						cx_begin + xi, cy_begin + yi,
+						sigmax, sigmay, ri * 45);
+				}
 			}
 		}
 	}
@@ -122,7 +154,7 @@ void get_kernels(vector<VectorXd>& kernels, const double sigmax, const double si
 void combination_kernels(const vector<VectorXd>& kernels)
 {
 	int size = sample_of_center, kernel_size = 3, scale = 1000;
-	cout << "kernels count: " << size << "*" << size << endl;
+	cout << "combination kernels count: " << size << "*" << size << endl;
 	Mat k_img(Size(size * kernel_size, size * kernel_size), CV_8UC3);
 	for (int y = 0; y < size; y++)
 	{
@@ -225,7 +257,7 @@ void match(const vector<vector<Point>>& centers_vec,
 				value, kernels[index], img_output);
 			draw_pic_with_kernel(centers_vec[vj][vi].y, centers_vec[vj][vi].x, 
 				480, kernels[index], img_480);
-			Vec3b color(0, 0, 0);
+			/*Vec3b color(0, 0, 0);
 			if (index % 4 == 0)
 				color = Vec3b(value / 12, 0, 0);
 			else if (index % 4 == 1)
@@ -233,8 +265,9 @@ void match(const vector<vector<Point>>& centers_vec,
 			else if (index % 4 == 2)
 				color = Vec3b(0, 0, value / 12);
 			else if (index % 4 == 3)
-				color = Vec3b(0, value / 12, value / 12);
-			img_ones.at<Vec3b>(vj, /*2 * vi + vj % 2*/ vi) = color;
+				color = Vec3b(0, value / 12, value / 12);*/
+			Vec3b color(value / 12, value / 12, value / 12);
+			img_ones.at<Vec3b>(vj, 2 * vi + vj % 2 /*vi*/) = color;
 			//out << v.first / IMG_WIDTH << "," << v.first % IMG_WIDTH << "," << value << endl;
 			out << value << ",,";
 		}
@@ -244,7 +277,7 @@ void match(const vector<vector<Point>>& centers_vec,
 	cout <<"used kernels count: "<< index_set.size() << endl;
 	imwrite("./output/result_of_kernels.png", img_output);
 	imwrite("./output/result_of_480_mul_kernels.png", img_480);
-	imwrite("./output/G16_result.png", img_ones);
+	imwrite("./output/R16_result.png", img_ones);
 	//cvtColor(img_output, img_output, CV_BGR2GRAY);
 	//cvtColor(img_480, img_480, CV_BGR2GRAY);
 	//imwrite("./output/result_of_kernels.bmp", img_output);
@@ -256,7 +289,7 @@ double compute_sigma(const vector<vector<VectorXd>>& data,
 {
 	Performance p;
 	get_kernels(kernels, sigmax, sigmay);
-
+	cout << kernels.size() << endl;
 	vector<double> kd_tree_kernel(kernels.size() * 9, 0),
 		kd_tree_data;
 	for (int i = 0; i < kernels.size(); i++)
@@ -319,9 +352,13 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		//draw_pic_with_scalar(ce.y, ce.x, Vec3b(0, 0, 255), img_output);
 		img_output.at<Vec3b>(ce.y, ce.x) = Vec3b(0, 0, 255);
 	}
-	vector<VectorXd> kernels(sample_of_center*sample_of_center*4, VectorXd(9));
+	vector<VectorXd> kernels;
+	if (xy == 0 || xy == 1)
+		kernels.resize(sample_of_center*sample_of_center * 4, VectorXd(9));
+	else
+		kernels.resize(sample_of_center*sample_of_center, VectorXd(9));
 
-	/*ofstream out("./output/G16_loss.csv");
+	/*ofstream out("./output/R16_loss.csv");
 	double sigma = 0.5, loss = 100000, loss_old, flag = -1;
 	for (; sigma < 2; sigma += 0.01)
 	{
@@ -377,13 +414,32 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		cout << "sigma:" << sigmax << "," << sigmay << endl;
 		out.close();
 	}
+	else if (xy == 2)
+	{
+		sigmax = from;
+		sigmay = from;
+		loss = 1000000;
+		flag = -1;
+		sprintf_s(outfile, "./output/%s_iso_c%d_g%d.csv",
+			prefix, sample_of_center, sample_of_guass_point);
+		ofstream out(outfile);
+		for (; sigmax < to; sigmax += add)
+		{
+			loss_old = loss;
+			loss = compute_sigma(data, kernels, sigmax, sigmax);
+			out << sigmax << "," << sigmax << "," << loss << endl;
+		}
+		cout << "sigma:" << sigmax << "," << sigmay << endl;
+		out.close();
+	}
 	else
 	{
 		// blue 1.06 0.92
 		// green 0.71, 0.85
-		double sigmax = 0.71, sigmay = 0.85;
+		double sigmax = 0.77, sigmay = 0.77;
 		cout << "sigma: " << sigmax << "," << sigmay << endl;
 		get_kernels(kernels, sigmax, sigmay);
+		cout <<"total kernels count:"<< kernels.size() << endl;
 		combination_kernels(kernels);
 		match(centers_vec, data, kernels);
 	}
