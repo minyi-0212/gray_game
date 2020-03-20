@@ -3,6 +3,7 @@
 #include <fstream>
 #include <flann/flann.hpp>
 #include <flann/util/matrix.h>
+#include <unordered_map>
 
 const double PI = 4.0*atan(1.0); //‘≤÷‹¬ ¶–∏≥÷µ
 using namespace std;
@@ -17,7 +18,7 @@ extern Mat img;
 extern int IMG_WIDTH;
 Mat img_output;
 
-void output(const VectorXd& a)
+void output_pentile(const VectorXd& a)
 {
 	cout << "[";
 	for (int i = 0; i < 8; i++)
@@ -170,7 +171,7 @@ void combination_kernels(const vector<VectorXd>& kernels)
 			}
 		}
 	}
-	imwrite("./output/kernels_new.png", k_img);
+	imwrite("./output_pentile/kernels_new.png", k_img);
 }
 
 int find_most_similar(const VectorXd& point, const vector<VectorXd>& kernels)
@@ -215,6 +216,39 @@ void draw_pic_with_scalar(const int y, const int x, const Vec3b val, Mat& img)
 	}
 }
 
+void query_by_kdtree
+(const vector<vector<VectorXd>>& data, const vector<VectorXd>& kernels,
+	flann::Matrix<int>& indices, flann::Matrix<double>& dists)
+{
+	vector<double> kd_tree_kernel(kernels.size() * 9, 0),
+		kd_tree_data;
+	for (int i = 0; i < kernels.size(); i++)
+	{
+		VectorXd tmp = kernels[i];
+		tmp.normalize();
+		for (int mi = 0; mi < 9; mi++)
+			kd_tree_kernel[i * 9 + mi] = tmp[mi];
+	}
+	for (auto d : data)
+		for (auto dd : d)
+		{
+			dd.normalize();
+			for (int mi = 0; mi < 9; mi++)
+				kd_tree_data.push_back(dd[mi]);
+		}
+	flann::Matrix<double> points_mat = flann::Matrix<double>(&kd_tree_kernel[0], kernels.size(), 9);
+	flann::Matrix<double> query = flann::Matrix<double>(&kd_tree_data[0], kd_tree_data.size() / 9, 9);
+	int nns_number = 1;
+	//flann::Matrix<int> indices(new int[query.rows*nns_number], query.rows, nns_number);
+	//flann::Matrix<double> dists(new double[query.rows*nns_number], query.rows, nns_number);
+	indices = flann::Matrix<int>(new int[query.rows*nns_number], query.rows, nns_number);
+	dists = flann::Matrix<double>(new double[query.rows*nns_number], query.rows, nns_number);
+	flann::Index<flann::L2<double>> index(points_mat, flann::KDTreeIndexParams(4));
+	index.buildIndex();
+	index.knnSearch(query, indices, dists, nns_number, flann::SearchParams(128));
+}
+
+
 void match(const vector<vector<Point>>& centers_vec,
 	const vector<vector<VectorXd>>& data,
 	const vector<VectorXd>& kernels)
@@ -229,7 +263,7 @@ void match(const vector<vector<Point>>& centers_vec,
 	Mat img_480 = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0)),
 		img_ones = Mat(Size(2500, 1250), CV_8UC3, Scalar(0, 0, 0));
 	set<int> index_set;
-	ofstream out("./output/result.csv");
+	ofstream out("./output_pentile/result.csv");
 	bool need_indent = true;
 	VectorXd ones(9);
 	ones << 1, 1, 1,
@@ -275,13 +309,205 @@ void match(const vector<vector<Point>>& centers_vec,
 	}
 	out.close();
 	cout <<"used kernels count: "<< index_set.size() << endl;
-	imwrite("./output/result_of_kernels.png", img_output);
-	imwrite("./output/result_of_480_mul_kernels.png", img_480);
-	imwrite("./output/R16_result.png", img_ones);
+	imwrite("./output_pentile/result_of_kernels.png", img_output);
+	imwrite("./output_pentile/result_of_480_mul_kernels.png", img_480);
+	imwrite("./output_pentile/B16_result.png", img_ones);
 	//cvtColor(img_output, img_output, CV_BGR2GRAY);
 	//cvtColor(img_480, img_480, CV_BGR2GRAY);
-	//imwrite("./output/result_of_kernels.bmp", img_output);
-	//imwrite("./output/result_of_480.bmp", img_480);
+	//imwrite("./output_pentile/result_of_kernels.bmp", img_output);
+	//imwrite("./output_pentile/result_of_480.bmp", img_480);
+}
+
+void match_new(const vector<vector<Point>>& centers_vec,
+	const vector<vector<VectorXd>>& data,
+	const vector<VectorXd>& kernels, RGB select_rgb)
+{
+	vector<int> first_point_indent(centers_vec.size(), 0);
+	{
+		int to_alignment = 0;
+		for (int i=1;i< centers_vec.size(); i++)
+		{
+			if (centers_vec[i][0].x < centers_vec[to_alignment][0].x)
+				to_alignment = i;
+		}
+		cout << "the alignment line " << to_alignment <<"[0].x = "<< centers_vec[to_alignment][0].x << endl;
+		for (int vj = 0; vj < centers_vec.size(); vj+=2)
+		{
+			for (int vi = 0; vi < centers_vec[to_alignment].size(); vi++)
+			{
+				if (centers_vec[vj][0].x > centers_vec[to_alignment][vi].x+6)
+				{
+					/*cout << (centers_vec[vj][0].x - centers_vec[to_alignment][vi].x) * 1.0
+						/ (centers_vec[vj][0].y - centers_vec[to_alignment][vi].y) << endl;*/
+					first_point_indent[vj]++;
+				}
+				else
+					break;
+			}
+			for (int vi = 0; vi < centers_vec[to_alignment].size(); vi++)
+			{
+				if (centers_vec[vj+1][0].x > centers_vec[to_alignment][vi].x+6+5)
+				{
+					/*cout << (centers_vec[vj][0].x - centers_vec[to_alignment][vi].x) * 1.0
+						/ (centers_vec[vj][0].y - centers_vec[to_alignment][vi].y) << endl;*/
+					first_point_indent[vj+1]++;
+				}
+				else
+					break;
+			}
+		}
+		for (int vj = 0; vj < centers_vec.size(); vj ++)
+		{
+			if (first_point_indent[vj] <= 2)
+				first_point_indent[vj] = 0;
+		}
+		//for (int i = 0; i < 400; i++)
+			//cout << first_point_indent[i] << endl;
+		/*for (int vj = 1; vj < centers_vec.size(); vj += 2)
+		{
+			for (int vi = 0; vi < centers_vec[to_alignment].size(); vi++)
+			{
+				if (centers_vec[vj][0].x < centers_vec[to_alignment][vi].x + 14)
+				{
+					first_point_indent[vj]++;
+				}
+				else
+					break;
+			}
+		}*/
+	}
+
+	flann::Matrix<int> indices;
+	flann::Matrix<double> dists;
+	query_by_kdtree(data, kernels, indices, dists);
+
+	Mat img_480 = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0)),
+		img_ones = Mat(Size(2436, 752*3), CV_8UC3, Scalar(0, 0, 0));
+	set<int> index_set;
+	VectorXd ones(9);
+	ones << 1, 1, 1,
+		1, 1, 1,
+		1, 1, 1;
+	int centers_id = 0;
+	for (int vj = 0; vj < centers_vec.size(); vj++)
+	{
+		for (int vi = 0; vi < centers_vec[vj].size(); vi++)
+		{
+			if (data[vj][vi][0] < 0)
+			{
+				continue;
+			}
+			//int index = find_most_similar(data[vj][vi].normalized(), kernels_normalized);
+			int index = indices[centers_id++][0];
+			index_set.insert(index);
+			MatrixXd A(kernels[index]);
+			double value = A.colPivHouseholderQr().solve(data[vj][vi])[0];
+			draw_pic_with_kernel(centers_vec[vj][vi].y, centers_vec[vj][vi].x,
+				value, kernels[index], img_output);
+			draw_pic_with_kernel(centers_vec[vj][vi].y, centers_vec[vj][vi].x,
+				480, kernels[index], img_480);
+			Vec3b color(0, 0, 0);
+			color[select_rgb] = 5 * sqrt(value);
+			if (select_rgb == BLUE)
+			{
+				img_ones.at<Vec3b>(vj * 2, 2 * (vi+ first_point_indent[vj]) + (vj + 1) % 2) = color;
+			}
+			else if (select_rgb == GREEN)
+			{
+				img_ones.at<Vec3b>(vj * 2 + 1, vi + first_point_indent[vj]) = color;
+			}
+			else
+			{
+				img_ones.at<Vec3b>(vj * 2, 2 * (vi + first_point_indent[vj]) + vj % 2) = color;
+			}
+		}
+	}
+	cout << "used kernels count: " << index_set.size() << endl;
+	imwrite("./output_pentile/result_of_kernels.png", img_output);
+	imwrite("./output_pentile/result_of_480_mul_kernels.png", img_480);
+	imwrite("./output_pentile/B16_result.png", img_ones);
+}
+
+void pentile_rgb_relationship
+(const vector<vector<Point>>& centers_vec,
+	const vector<vector<VectorXd>>& data,
+	const vector<VectorXd>& kernels,
+	const char* outputfile)
+{
+	flann::Matrix<int> indices;
+	flann::Matrix<double> dists;
+	query_by_kdtree(data, kernels, indices, dists);
+	set<int> index_set;
+	//ofstream out("./output_pentile/pentile_rgb_relationship.csv");
+	ofstream out(outputfile);
+	//int centers_id = 0, base = 255 - centers_vec.size()/4;
+	//double brightness = 0, gray = 0;
+	//for (int vj = 0; vj < centers_vec.size(); vj++)
+	//{
+	//	double sum_brightness = 0, sum_gray = 0, valid_cnt = 0;
+	//	for (int vi = 0; vi < centers_vec[vj].size(); vi++)
+	//	{
+	//		if (data[vj][vi][0] < 0)
+	//		{
+	//			centers_id++;
+	//			continue;
+	//		}
+	//		valid_cnt++;
+	//		int index = indices[centers_id++][0];
+	//		index_set.insert(index);
+	//		MatrixXd A(kernels[index]);
+	//		double value = A.colPivHouseholderQr().solve(data[vj][vi])[0];
+	//		sum_brightness += value;
+	//		sum_gray += data[vj][vi][4];
+	//		//out << base << "," << value << endl;
+	//	}
+	//	sum_brightness /= valid_cnt;
+	//	sum_gray /= valid_cnt;
+	//	//out << sum_gray << "," << sum_brightness << ",";
+	//	if ((vj + 4 - centers_vec.size() % 4) % 4 == 3)
+	//	{
+	//		out << base++ << "," << (brightness + sum_brightness) / (vj < 4 ? vj + 1 : 4)
+	//			<<"," << (gray + sum_gray) / (vj < 4 ? vj + 1 : 4) << endl;
+	//		brightness = 0;
+	//		gray = 0;
+	//	}
+	//	else
+	//	{
+	//		brightness += sum_brightness;
+	//		gray += sum_gray;
+	//	}
+	//}
+
+	{
+		int centers_id = 0;
+		double brightness = 0, gray = 0;
+		for (int vj = 0; vj < centers_vec.size(); vj++)
+		{
+			double sum_brightness = 0, sum_gray = 0, valid_cnt = 0;
+			for (int vi = 0; vi < centers_vec[vj].size(); vi++)
+			{
+				if (data[vj][vi][0] < 0)
+				{
+					centers_id++;
+					continue;
+				}
+				valid_cnt++;
+				int index = indices[centers_id++][0];
+				index_set.insert(index);
+				MatrixXd A(kernels[index]);
+				double value = A.colPivHouseholderQr().solve(data[vj][vi])[0];
+				sum_brightness += value;
+				sum_gray += data[vj][vi][4];
+			}
+			sum_brightness /= valid_cnt;
+			sum_gray /= valid_cnt;
+			out << sum_brightness << "," << sum_gray << endl;
+		}
+	}
+
+	out.close();
+	cout << "total lines: " << centers_vec.size() << endl
+		<< "used kernels count: " << index_set.size() << endl;
 }
 
 double compute_sigma(const vector<vector<VectorXd>>& data,
@@ -289,7 +515,7 @@ double compute_sigma(const vector<vector<VectorXd>>& data,
 {
 	Performance p;
 	get_kernels(kernels, sigmax, sigmay);
-	cout << kernels.size() << endl;
+	//cout << kernels.size() << endl;
 	vector<double> kd_tree_kernel(kernels.size() * 9, 0),
 		kd_tree_data;
 	for (int i = 0; i < kernels.size(); i++)
@@ -314,7 +540,7 @@ double compute_sigma(const vector<vector<VectorXd>>& data,
 	index.buildIndex();
 	index.knnSearch(query, indices, dists, nns_number, flann::SearchParams(128));
 	double loss = 0;
-	cout << dists.rows << endl;
+	//cout << dists.rows << endl;
 	for (int i = 0; i < dists.rows; i++) {
 		loss += dists[i][0];
 	}
@@ -342,8 +568,11 @@ double compute_sigma(const vector<vector<VectorXd>>& data,
 
 void compute_dumura(vector<vector<Point>>& centers_vec,
 	vector<vector<VectorXd>>& data,
-	vector<Point>& centers_error, int xy, // x:0, y:1, no sigma compute:3
-	double from, double to, double another, double add, const char* prefix)
+	vector<Point>& centers_error, int xy, 
+	// change sigmax:0, change sigmax y:1, the same sigma:2, no sigma compute:3
+	// compute relationship between rgb & pentile-4
+	double from, double to, double another, double add, const char* prefix, RGB select_rgb,
+	const char* outputfile)
 {
 	Performance p;
 	img_output = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0));
@@ -358,7 +587,7 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 	else
 		kernels.resize(sample_of_center*sample_of_center, VectorXd(9));
 
-	/*ofstream out("./output/R16_loss.csv");
+	/*ofstream out("./output_pentile/B16_loss.csv");
 	double sigma = 0.5, loss = 100000, loss_old, flag = -1;
 	for (; sigma < 2; sigma += 0.01)
 	{
@@ -380,9 +609,10 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		loss = 1000000, loss_old, flag = -1;
 	if (xy == 0)
 	{
+		cout << " change sigmax" << endl;
 		sigmax = from;
 		sigmay = another;
-		sprintf_s(outfile, "./output/%s_%.2f,%.2f__%.2f_c%d_g%d.csv",
+		sprintf_s(outfile, "./output_pentile/%s_%.2f,%.2f__%.2f_c%d_g%d.csv",
 			prefix, sigmax, to, sigmay,
 			sample_of_center, sample_of_guass_point);
 		ofstream out(outfile);
@@ -397,11 +627,12 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 	}
 	else if(xy==1)
 	{
+		cout << " change sigmay" << endl;
 		sigmax = another;
 		sigmay = from;
 		loss = 1000000;
 		flag = -1;
-		sprintf_s(outfile, "./output/%s_%.2f__%.2f,%.2f_c%d_g%d.csv",
+		sprintf_s(outfile, "./output_pentile/%s_%.2f__%.2f,%.2f_c%d_g%d.csv",
 			prefix, sigmax, sigmay, to,
 			sample_of_center, sample_of_guass_point);
 		ofstream out(outfile);
@@ -416,12 +647,13 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 	}
 	else if (xy == 2)
 	{
+		cout << " the same sigmax and sigmay" << endl;
 		sigmax = from;
-		sigmay = from;
 		loss = 1000000;
 		flag = -1;
-		sprintf_s(outfile, "./output/%s_iso_c%d_g%d.csv",
+		sprintf_s(outfile, "./output_pentile/%s_iso_c%d_g%d.csv",
 			prefix, sample_of_center, sample_of_guass_point);
+		cout << endl << "write to " << outfile << endl;
 		ofstream out(outfile);
 		for (; sigmax < to; sigmax += add)
 		{
@@ -429,11 +661,12 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 			loss = compute_sigma(data, kernels, sigmax, sigmax);
 			out << sigmax << "," << sigmax << "," << loss << endl;
 		}
-		cout << "sigma:" << sigmax << "," << sigmay << endl;
+		cout << "sigma:" << sigmax << "," << sigmax << endl;
 		out.close();
 	}
-	else
+	else if(xy == 3)
 	{
+		cout << " match guassian" << endl;
 		// blue 1.06 0.92
 		// green 0.71, 0.85
 		double sigmax = 0.77, sigmay = 0.77;
@@ -441,7 +674,25 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		get_kernels(kernels, sigmax, sigmay);
 		cout <<"total kernels count:"<< kernels.size() << endl;
 		combination_kernels(kernels);
-		match(centers_vec, data, kernels);
+		match_new(centers_vec, data, kernels, select_rgb);
+	}
+	else if (xy == 4)
+	{
+		cout << " compute relationship between rgb & pentile" << endl;
+		double sigmax = 0.59, sigmay = 0.59;
+		cout << "sigma: " << sigmax << "," << sigmay << endl;
+		get_kernels(kernels, sigmax, sigmay);
+		cout << "total kernels count:" << kernels.size() << endl;
+		cout<<endl<<"write to "<< outputfile << endl;
+		pentile_rgb_relationship(centers_vec, data, kernels, outputfile);
+	}
+	else
+	{
+		cout << "select: \
+			0-change sigmax, \
+			1-change sigmax y, \
+			2-the same sigma, 3-no sigma compute\
+			4-compute relationship between rgb & pentile" << endl;
 	}
 	p.endAndPrint();
 }

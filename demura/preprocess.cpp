@@ -39,6 +39,6 @@ void preprocess(const char *f1, const char *f2, const char *f3, const char *outf
 	Mat element = getStructuringElement(MORPH_RECT, Size(erode_ks, erode_ks));
 	erode(mask, mask, element);
 	//GaussianBlur(mask, mask, Size(5, 5), 2, 2);
-	cout << "output " << outfile << endl;
+	cout << "output_pentile " << outfile << endl;
 	imwrite(outfile, mask);
 }

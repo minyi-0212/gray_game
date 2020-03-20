@@ -3,7 +3,6 @@
 #include "preprocess.h"
 #include "pentile.h"
 #include <direct.h>
-#include <fstream>
 using namespace std;
 using namespace cv;
 using namespace Eigen;
@@ -37,155 +36,84 @@ void test_g32()
 	imshow("G32", img);
 	waitKey(0);
 }
+
+void test_pentile()
+{
+	Mat rgb = imread("./output_pentile/test_rgb.bmp"), pentile;
+	rgb2pentile(rgb, pentile);
+	imwrite("./output_pentile/pentile2.bmp", pentile);
+	pentile2rgb(pentile, rgb);
+	imwrite("./output_pentile/bask_test_rgb2.bmp", rgb);
+}
+
+void merge()
+{
+	Mat r = imread("./output_pentile/R16_result.png"), 
+		g = imread("./output_pentile/B16_result.png"),
+		b = imread("./output_pentile/B16_result.png"),
+		bgr(r.size(), r.type());
+	for (int y = 0; y < r.rows; y++)
+	{
+		for (int x = 0; x < r.cols; x++)
+		{
+			bgr.at<Vec3b>(y, x)[0] = b.at<Vec3b>(y, x)[0];
+			bgr.at<Vec3b>(y, x)[1] = g.at<Vec3b>(y, x)[1];
+			bgr.at<Vec3b>(y, x)[2] = r.at<Vec3b>(y, x)[2];
+		}
+	}
+	imwrite("./output_pentile/merge.png", bgr);
+}
+
 /*
 int xy, // x:0, y:1, no sigma compute:3
 double from, double to, double another, double add, const char* prefix
 */
-
-void draw_box(int cx, int cy, int rx, int ry, Mat& p, Vec3b& color)
-{
-	int x = cx, y = cy;
-	while (x < rx)
-	{
-		p.at<Vec3b>(y, x++) = color;
-	}
-	while (y < ry)
-	{
-		p.at<Vec3b>(y++, x) = color;
-	}
-	while (x > cx)
-	{
-		p.at<Vec3b>(y, x--) = color;
-	}
-	while (y > cy)
-	{
-		p.at<Vec3b>(y--, x) = color;
-	}
-}
-
-void draw_pattern()
-{
-	/*Mat p(Size(2436, 752), CV_8UC3, Scalar(0, 0, 0));
-	for (int y = 0; y<p.rows; )
-	{
-		for (int x = 0; x < p.cols; x++)
-		{
-			p.at<byte>(y, x) = x % 255;
-		}
-		if (y % 10 == 9)
-			y += 11;
-		else
-			y++;
-	}
-	for (int x = 0; x < p.cols;)
-	{
-		for (int y = 0; y < p.rows; y++)
-		{
-			p.at<byte>(y, x) = 255;
-		}
-		if (x % 50 == 0)
-			x++;
-		else
-			x += 49;
-	}*/
-
-	int cols = 2436, rows = 752, base = cols / 6;
-	Mat p(Size(cols, rows), CV_8UC3, Scalar(0, 0, 0));
-	byte tmp=0;
-	for (int j = 3; j < rows-3; j+=2)
-	{
-		for (int i = 3; i < base; i++)
-		{
-			p.at<Vec3b>(j, i) = Vec3b(0, 0, tmp);
-			p.at<Vec3b>(j, i + base) = Vec3b(0, tmp, 0);
-			p.at<Vec3b>(j, i + base * 2) = Vec3b(tmp, 0, 0);
-			tmp++;
-		}
-	}
-	tmp = 0;
-	for (int i = 3; i < base; i+=2)
-	{
-		for (int j = 3; j < rows-3; j++)
-		{
-			p.at<Vec3b>(j, i + base * 3) = Vec3b(0, 0, tmp);
-			p.at<Vec3b>(j, i + base * 4) = Vec3b(0, tmp, 0);
-			p.at<Vec3b>(j, i + base * 5) = Vec3b(tmp, 0, 0);
-			tmp++;
-		}
-	}
-	Vec3b white(255,255,255), black(0,0,0);
-	draw_box(0, 0, cols-1, rows-1, p, white);
-	draw_box(1, 1, cols-2, rows-2, p, black);
-	draw_box(2, 2, cols-3, rows-3, p, black);
-	imwrite("./output/pattern_rgb.png", p);
-
-	ofstream out("./output/r.csv");
-	for (int j = 0; j < rows; j++)
-	{
-		for (int i = 0; i < cols; i++)
-		{
-			out << (int)p.at<Vec3b>(j, i)[2] << ",";
-		}
-		out << endl;
-	}
-	out.close();
-
-	out.open("./output/g.csv");
-	for (int j = 0; j < rows; j++)
-	{
-		for (int i = 0; i < cols; i++)
-		{
-			out << (int)p.at<Vec3b>(j, i)[1] << ",";
-		}
-		out << endl;
-	}
-	out.close();
-
-	out.open("./output/b.csv");
-	for (int j = 0; j < rows; j++)
-	{
-		for (int i = 0; i < cols; i++)
-		{
-			out << (int)p.at<Vec3b>(j, i)[0] << ",";
-		}
-		out << endl;
-	}
-	out.close();
-}
-
-void test_pentile()
-{
-	Mat rgb = imread("./output/test_rgb.bmp"), pentile;
-	rgb2pentile(rgb, pentile);
-	imwrite("./output/pentile2.bmp", pentile);
-	pentile2rgb(pentile, rgb);
-	imwrite("./output/bask_test_rgb2.bmp", rgb);
-}
-
 int main(int argc, char* argv[])
 {
 	//test_g32();
-	_mkdir("./output");
-	//draw_pattern();
+	_mkdir("./output_pentile");
+	//draw_pattern2("./output_pentile/test2", 752, 2436);
 	//test_pentile();
+	//merge();
+	//system("pause");
+	//return 0;
 
-	/*preprocess("./input2/5.85_R16.bmp", "./input2/5.85_R16.bmp", "./input2/5.85_R16.bmp",
+	/*preprocess("./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp", "./input2/5.85_B16.bmp",
 		"./input2/mask.png");*/
 
-	//vector<Point> centers_error;
-	////map<int, VectorXd> centers;
-	//vector<vector<Point>> centers_vec;
-	//vector<vector<VectorXd>> data;
-	//bool is_green = false;
-	//find_OLED_location_with_mask(centers_vec, data, centers_error, is_green);
-	//cout << "--------------------" << endl;
-	//if (argc >= 7)
-	//{
-	//	cout << "demura..." << endl;
-	//	compute_dumura(centers_vec, data, centers_error, atoi(argv[1]),
-	//		atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), argv[6]);
-	//}
+	vector<Point> centers_error;
+	//map<int, VectorXd> centers;
+	vector<vector<Point>> centers_vec;
+	vector<vector<VectorXd>> data;
+	//for (int i = 12000; i >= 7000; i -= 1000)
+	int i = 7000;
+	{
+		char path[MAX_PATH], inputfile[MAX_PATH], output_csv[MAX_PATH];
+		sprintf_s(path, "E:/coding/gray_game/demura", i);
+		sprintf_s(inputfile, "%s/input2_pentile/test_pentile_0_%dus.BMP", path, i);
+		//sprintf_s(output_csv, "%s/output_pentile/%dus_pentile_rgb_relationship.csv",path, i);
+		sprintf_s(output_csv, "%s/output_pentile/pentile_rgb_relationship.csv", path);
+		//cout<<endl<<"write to "<< output_csv << endl;
+		RGB select_rgb = BLUE;
+		/*find_OLED_location_with_mask(
+			inputfile, "E:/coding/gray_game/demura/input2_pentile/mask_r.bmp",
+			"E:/coding/gray_game/demura/output_pentile/B16_selected_points.png", 
+			"E:/coding/gray_game/demura/output_pentile/B16_after_3x3_set.png",
+			centers_vec, data, centers_error, select_rgb == GREEN);*/
+		/*find_OLED_location_with_mask(
+			"./input2/5.85_B16.bmp", "./input2/mask.png",
+			"./output_pentile/B16_selected_points.png", "./output_pentile/B16_after_3x3_set.png",
+			centers_vec, data, centers_error, select_rgb == GREEN);*/
+		cout << "--------------------" << endl;
 
+		/*if (argc >= 7)
+		{
+			cout << "demura..." << endl;
+			compute_dumura(centers_vec, data, centers_error, atoi(argv[1]),
+				atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), argv[6], select_rgb,
+				output_csv);
+		}*/
+	}
 	system("pause");
 	return 0;
 }

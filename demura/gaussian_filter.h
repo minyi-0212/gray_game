@@ -7,4 +7,5 @@
 void compute_dumura(std::vector<std::vector<cv::Point>>& centers_vec,
 	std::vector<std::vector<Eigen::VectorXd>>& data,
 	std::vector<cv::Point>& centers_error, int xy, // x:0, y:1, no sigma compute:3
-	double from, double to, double another, double add, const char* prefix);
+	double from, double to, double another, double add, const char* prefix, RGB select_rgb,
+	const char* outputfile);

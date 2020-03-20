@@ -9,8 +9,4 @@
 #include <Eigen/core>
 #include <set>
 
-struct info
-{
-	Eigen::VectorXd p;
-	Eigen::VectorXd distribution;
-};
+enum RGB { BLUE, GREEN, RED };

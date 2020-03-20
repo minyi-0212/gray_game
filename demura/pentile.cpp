@@ -1,4 +1,5 @@
 #include "pentile.h"
+#include <fstream>
 using namespace std;
 using namespace cv;
 using namespace Eigen;
@@ -6,7 +7,7 @@ using namespace Eigen;
 const int r = 2, g = 1, b = 0;
 void rgb2pentile(const Mat& rgb, Mat& pentile)
 {
-	//Mat rgb = imread("./output/rgb2.png");
+	//Mat rgb = imread("./output_pentile/rgb2.png");
 	cout <<"rgb2pentile :: (rows*cols)"<< rgb.rows << " * " << rgb.cols << " => ";
 	//Mat pentile(Size(rgb.cols / 3 * 2, rgb.rows), rgb.type(), Scalar(0, 0, 0));
 	pentile = Mat(Size(rgb.cols / 3 * 2, rgb.rows), rgb.type(), Scalar(0, 0, 0));
@@ -35,12 +36,12 @@ void rgb2pentile(const Mat& rgb, Mat& pentile)
 			}
 		}
 	}
-	//imwrite("./output/pattern_pentile2.png", pentile);
+	//imwrite("./output_pentile/pattern_pentile2.png", pentile);
 }
 
 void pentile2rgb(const Mat& pentile, Mat& rgb)
 {
-	//Mat pentile = imread("./output/pentile2.bmp");
+	//Mat pentile = imread("./output_pentile/pentile2.bmp");
 	cout << "pentile2rgb :: (rows*cols)" << pentile.rows << " * " << pentile.cols << " => ";
 	//Mat rgb(Size(pentile.cols / 2 * 3, pentile.rows), pentile.type(), Scalar(0, 0, 0));
 	rgb= Mat(Size(pentile.cols / 2 * 3, pentile.rows), pentile.type(), Scalar(0, 0, 0));
@@ -122,10 +123,330 @@ void pentile2rgb(const Mat& pentile, Mat& rgb)
 			img[imgidx * 9 + 8] = b[2];
 		}
 	memcpy(rgb.data, img.data(), img.size() * sizeof(BYTE));*/
-	//imwrite("./output/rgb2.png", rgb);
+	//imwrite("./output_pentile/rgb2.png", rgb);
 }
 
-void find_pentile_rgb_relationship()
+void draw_box(int cx, int cy, int rx, int ry, Mat& p, Vec3b& color)
 {
+	int x = cx, y = cy;
+	while (x < rx)
+	{
+		p.at<Vec3b>(y, x++) = color;
+	}
+	while (y < ry)
+	{
+		p.at<Vec3b>(y++, x) = color;
+	}
+	while (x > cx)
+	{
+		p.at<Vec3b>(y, x--) = color;
+	}
+	while (y > cy)
+	{
+		p.at<Vec3b>(y--, x) = color;
+	}
+}
 
+void draw_pattern()
+{
+	/*Mat p(Size(2436, 752), CV_8UC3, Scalar(0, 0, 0));
+	for (int y = 0; y<p.rows; )
+	{
+		for (int x = 0; x < p.cols; x++)
+		{
+			p.at<byte>(y, x) = x % 255;
+		}
+		if (y % 10 == 9)
+			y += 11;
+		else
+			y++;
+	}
+	for (int x = 0; x < p.cols;)
+	{
+		for (int y = 0; y < p.rows; y++)
+		{
+			p.at<byte>(y, x) = 255;
+		}
+		if (x % 50 == 0)
+			x++;
+		else
+			x += 49;
+	}*/
+
+	int cols = 2436, rows = 752, base = cols / 6;
+	Mat p(Size(cols, rows), CV_8UC3, Scalar(0, 0, 0));
+	byte tmp = 0;
+	for (int j = 3; j < rows - 3; j += 2)
+	{
+		for (int i = 3; i < base; i++)
+		{
+			p.at<Vec3b>(j, i) = Vec3b(0, 0, tmp);
+			p.at<Vec3b>(j, i + base) = Vec3b(0, tmp, 0);
+			p.at<Vec3b>(j, i + base * 2) = Vec3b(tmp, 0, 0);
+			tmp++;
+		}
+	}
+	tmp = 0;
+	for (int i = 3; i < base; i += 2)
+	{
+		for (int j = 3; j < rows - 3; j++)
+		{
+			p.at<Vec3b>(j, i + base * 3) = Vec3b(0, 0, tmp);
+			p.at<Vec3b>(j, i + base * 4) = Vec3b(0, tmp, 0);
+			p.at<Vec3b>(j, i + base * 5) = Vec3b(tmp, 0, 0);
+			tmp++;
+		}
+	}
+	Vec3b white(255, 255, 255), black(0, 0, 0);
+	draw_box(0, 0, cols - 1, rows - 1, p, white);
+	draw_box(1, 1, cols - 2, rows - 2, p, black);
+	draw_box(2, 2, cols - 3, rows - 3, p, black);
+	imwrite("./output_pentile/pattern_rgb.png", p);
+
+	ofstream out("./output_pentile/r.csv");
+	for (int j = 0; j < rows; j++)
+	{
+		for (int i = 0; i < cols; i++)
+		{
+			out << (int)p.at<Vec3b>(j, i)[2] << ",";
+		}
+		out << endl;
+	}
+	out.close();
+
+	out.open("./output_pentile/g.csv");
+	for (int j = 0; j < rows; j++)
+	{
+		for (int i = 0; i < cols; i++)
+		{
+			out << (int)p.at<Vec3b>(j, i)[1] << ",";
+		}
+		out << endl;
+	}
+	out.close();
+
+	out.open("./output_pentile/b.csv");
+	for (int j = 0; j < rows; j++)
+	{
+		for (int i = 0; i < cols; i++)
+		{
+			out << (int)p.at<Vec3b>(j, i)[0] << ",";
+		}
+		out << endl;
+	}
+	out.close();
+}
+
+vector<int> cross_range({ -5,-4,-3,-2,-1,0,1,2,3,4,5 });
+void draw_cross(Mat& img, int x, int y, Vec3b color)
+{
+	for (int xi = 0; xi < cross_range.size(); xi++)
+		img.at<Vec3b>(y, x + cross_range[xi]) = color;
+	for (int yi = 0; yi < cross_range.size(); yi++)
+		img.at<Vec3b>(y + cross_range[yi], x) = color;
+}
+
+void draw_pattern2(const char* prefix, int penw, int penh)
+{
+	//void gen_test_image(std::vector<BYTE> &img, int &w, int &h)
+	vector<BYTE> img;
+	int w = penw / 2 * 3, h = penh;
+	Mat rgb = Mat(Size(w, h), CV_8UC3, Scalar(0, 0, 0));
+	img.resize(w * h * 3);
+	Vec3b white(255, 255, 255),
+		white_one(1, 1, 1),
+		blue(255, 0, 0), green(0, 255, 0), red(0, 0, 255);
+	{
+		// x±ß¿ò
+		for (int y = 0; y <= 1; y++)
+			for (int x = 0; x < w; x++)
+				rgb.at<Vec3b>(y, x) = white;
+		for (int y = h - 1; y >= h - 2; y--)
+			for (int x = 0; x < w; x++)
+				rgb.at<Vec3b>(y, x) = white;
+
+		// y±ß¿ò
+		for (int x = 0; x <= 1; x++)
+			for (int y = 0; y < h; y++)
+				rgb.at<Vec3b>(y, x) = white;
+		for (int x = w - 1; x >= w - 5; x--)
+			for (int y = 0; y < h; y++)
+				rgb.at<Vec3b>(y, x) = white;
+		/*for (int x = 20; x < w; x += 20)
+			for (int y = 0; y < h; y++)
+				if (y < 20 || y >= h - 20)
+					rgb.at<Vec3b>(y, x) = white;*/
+
+		int startx = 43 + 12;
+		int starty = 130 + 12;
+		int gapx = 12;
+		int gapy = 12;
+		int x0 = startx;
+		int y0 = starty;
+		/*{
+			y0 += 100;
+			int stride_width = 400;
+			for (int y = 0; y < stride_width; y++)
+				for (int x = 0; x < 256*4; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = (255-x/4)*white_one;
+
+			y0 += stride_width + gapy;
+			for (int y = 0; y < 400; y++)
+				for (int x = 0; x < 256 * 4; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = x/4*white_one;
+
+			y0 += stride_width + gapy + 340;
+			stride_width = 500;
+			for (int y = 0; y < 256*3; y++)
+				for (int x = 0; x < stride_width; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = y / 3 * white_one;
+
+			x0 += stride_width + gapx;
+			for (int y = 0; y < 256 * 3; y++)
+				for (int x = 0; x < stride_width; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = (255-y / 3) * white_one;
+		}*/
+
+		{
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = white_one * x;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + 256 + gapx) = white_one * (255 - x);
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 2) = white_one * y;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 3) = white_one * (255 - y);
+
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256 * 4; x++)
+					rgb.at<Vec3b>(y0 + 256 + gapy + y, x0 + x) = x / 4 * white_one;
+		}
+
+		{
+			y0 += (256 + gapy) * 2;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = white_one * x;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + 256 + gapx) = white_one * (255 - x);
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 2) = white_one * y;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 3) = white_one * (255 - y);
+
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256 * 4; x++)
+					rgb.at<Vec3b>(y0 + 256 + gapy + y, x0 + x) = (255 - x / 4) * white_one;
+		}
+
+		{
+			y0 += (256 + gapy) * 2 + 20;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = white_one * x;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + 256 + gapx) = white_one * (255 - x);
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 2) = white_one * y;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 3) = white_one * (255 - y);
+
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256 * 4; x++)
+					rgb.at<Vec3b>(y0 + 256 + gapy + y, x0 + x) = y * white_one;
+		}
+
+		{
+			y0 += (256 + gapy) * 2;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x) = white_one * x;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + 256 + gapx) = white_one * (255 - x);
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 2) = white_one * y;
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256; x++)
+					rgb.at<Vec3b>(y0 + y, x0 + x + (256 + gapx) * 3) = white_one * (255 - y);
+
+			for (int y = 0; y < 256; y++)
+				for (int x = 0; x < 256 * 4; x++)
+					rgb.at<Vec3b>(y0 + 256 + gapy + y, x0 + x) = (255 - y) * white_one;
+		}
+	}
+
+	{
+	vector<int> need_y, need_x({ 30,60,90, 530,560,590, 1030,1060,1090 });
+		for (int y = 30; y <= 150; y += 50)
+		{
+			need_y.push_back(y);
+			for (int x = 30; x < w; x += 500)
+			{
+				draw_cross(rgb, x, y, blue);
+				draw_cross(rgb, x + 30, y, green);
+				draw_cross(rgb, x + 60, y, red);
+			}
+		}
+		for (int y = h - 30; y >= h - 150; y -= 50)
+		{
+			need_y.push_back(y);
+			for (int x = 30; x < w; x += 500)
+			{
+				draw_cross(rgb, x, y, blue);
+				draw_cross(rgb, x + 30, y, green);
+				draw_cross(rgb, x + 60, y, red);
+			}
+		}
+		int y = 1217;
+		//for (int y = 1217 - 50; y <= 1217 + 50; y += 50)
+		{
+			need_y.push_back(y);
+			for (int x = 30; x < w; x += 500)
+			{
+				draw_cross(rgb, x, y, blue);
+				draw_cross(rgb, x + 30, y, green);
+				draw_cross(rgb, x + 60, y, red);
+			}
+		}
+		//draw_cross(rgb, 100, 100, white);
+
+		for (auto y : need_y)
+			for (int x = 0; x < w; x++)
+				if (x < 20 || x >= w - 20)
+					rgb.at<Vec3b>(y, x) = white;
+		for (auto x : need_x)
+			for (int y = 0; y< h; y++)
+				if (y < 20 || y >= h - 20)
+					rgb.at<Vec3b>(y, x) = white;
+	}
+
+	Mat rgb_tmp = Mat(Size(w, h), CV_8UC3, Scalar(0, 0, 0));
+	memcpy(rgb_tmp.data, img.data(), img.size() * sizeof(BYTE));
+	char outfile[MAX_PATH];
+	sprintf_s(outfile, "%s_rgb_origin.bmp", prefix);
+	imwrite(outfile, rgb_tmp);
+	sprintf_s(outfile, "%s_rgb.bmp", prefix);
+	imwrite(outfile, rgb);
+
+	sprintf_s(outfile, "%s_pentile.bmp", prefix);
+	Mat pentile;
+	rgb2pentile(rgb, pentile);
+	imwrite(outfile, pentile);
+
+	rgb_tmp = Mat(Size(w, h), CV_8UC3, Scalar(255, 255, 255));
+	rgb2pentile(rgb_tmp, pentile);
+	sprintf_s(outfile, "%s_pentile_full_on.bmp", prefix);
+	imwrite(outfile, pentile);
 }
