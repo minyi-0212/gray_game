@@ -14,11 +14,11 @@ using cv::Size;
 using cv::Scalar;
 using namespace Eigen;
 
-extern Mat img;
-extern int IMG_WIDTH;
+//extern Mat img;
+extern int IMG_WIDTH, IMG_HEIGHT;
 Mat img_output;
 
-void output_pentile(const VectorXd& a)
+void output(const VectorXd& a)
 {
 	cout << "[";
 	for (int i = 0; i < 8; i++)
@@ -171,7 +171,7 @@ void combination_kernels(const vector<VectorXd>& kernels)
 			}
 		}
 	}
-	imwrite("./output_pentile/kernels_new.png", k_img);
+	imwrite("./output/kernels_new.png", k_img);
 }
 
 int find_most_similar(const VectorXd& point, const vector<VectorXd>& kernels)
@@ -260,10 +260,10 @@ void match(const vector<vector<Point>>& centers_vec,
 		kernels_normalized[i] = kernels[i].normalized();
 	}
 	
-	Mat img_480 = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0)),
+	Mat img_480 = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, Scalar(0, 0, 0)),
 		img_ones = Mat(Size(2500, 1250), CV_8UC3, Scalar(0, 0, 0));
 	set<int> index_set;
-	ofstream out("./output_pentile/result.csv");
+	ofstream out("./output/result.csv");
 	bool need_indent = true;
 	VectorXd ones(9);
 	ones << 1, 1, 1,
@@ -309,13 +309,13 @@ void match(const vector<vector<Point>>& centers_vec,
 	}
 	out.close();
 	cout <<"used kernels count: "<< index_set.size() << endl;
-	imwrite("./output_pentile/result_of_kernels.png", img_output);
-	imwrite("./output_pentile/result_of_480_mul_kernels.png", img_480);
-	imwrite("./output_pentile/B16_result.png", img_ones);
+	imwrite("./output/result_of_kernels.png", img_output);
+	imwrite("./output/result_of_480_mul_kernels.png", img_480);
+	imwrite("./output/B16_result.png", img_ones);
 	//cvtColor(img_output, img_output, CV_BGR2GRAY);
 	//cvtColor(img_480, img_480, CV_BGR2GRAY);
-	//imwrite("./output_pentile/result_of_kernels.bmp", img_output);
-	//imwrite("./output_pentile/result_of_480.bmp", img_480);
+	//imwrite("./output/result_of_kernels.bmp", img_output);
+	//imwrite("./output/result_of_480.bmp", img_480);
 }
 
 void match_new(const vector<vector<Point>>& centers_vec,
@@ -381,7 +381,7 @@ void match_new(const vector<vector<Point>>& centers_vec,
 	flann::Matrix<double> dists;
 	query_by_kdtree(data, kernels, indices, dists);
 
-	Mat img_480 = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0)),
+	Mat img_480 = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, Scalar(0, 0, 0)),
 		img_ones = Mat(Size(2436, 752*3), CV_8UC3, Scalar(0, 0, 0));
 	set<int> index_set;
 	VectorXd ones(9);
@@ -423,9 +423,9 @@ void match_new(const vector<vector<Point>>& centers_vec,
 		}
 	}
 	cout << "used kernels count: " << index_set.size() << endl;
-	imwrite("./output_pentile/result_of_kernels.png", img_output);
-	imwrite("./output_pentile/result_of_480_mul_kernels.png", img_480);
-	imwrite("./output_pentile/B16_result.png", img_ones);
+	imwrite("./output/result_of_kernels.png", img_output);
+	imwrite("./output/result_of_480_mul_kernels.png", img_480);
+	imwrite("./output/B16_result.png", img_ones);
 }
 
 void pentile_rgb_relationship
@@ -438,7 +438,7 @@ void pentile_rgb_relationship
 	flann::Matrix<double> dists;
 	query_by_kdtree(data, kernels, indices, dists);
 	set<int> index_set;
-	//ofstream out("./output_pentile/pentile_rgb_relationship.csv");
+	//ofstream out("./output/pentile_rgb_relationship.csv");
 	ofstream out(outputfile);
 	//int centers_id = 0, base = 255 - centers_vec.size()/4;
 	//double brightness = 0, gray = 0;
@@ -575,7 +575,7 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 	const char* outputfile)
 {
 	Performance p;
-	img_output = Mat(Size(img.cols, img.rows), CV_8UC3, Scalar(0, 0, 0));
+	img_output = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, Scalar(0, 0, 0));
 	for (auto ce : centers_error)
 	{
 		//draw_pic_with_scalar(ce.y, ce.x, Vec3b(0, 0, 255), img_output);
@@ -587,7 +587,7 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 	else
 		kernels.resize(sample_of_center*sample_of_center, VectorXd(9));
 
-	/*ofstream out("./output_pentile/B16_loss.csv");
+	/*ofstream out("./output/B16_loss.csv");
 	double sigma = 0.5, loss = 100000, loss_old, flag = -1;
 	for (; sigma < 2; sigma += 0.01)
 	{
@@ -612,7 +612,7 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		cout << " change sigmax" << endl;
 		sigmax = from;
 		sigmay = another;
-		sprintf_s(outfile, "./output_pentile/%s_%.2f,%.2f__%.2f_c%d_g%d.csv",
+		sprintf_s(outfile, "./output/%s_%.2f,%.2f__%.2f_c%d_g%d.csv",
 			prefix, sigmax, to, sigmay,
 			sample_of_center, sample_of_guass_point);
 		ofstream out(outfile);
@@ -632,7 +632,7 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		sigmay = from;
 		loss = 1000000;
 		flag = -1;
-		sprintf_s(outfile, "./output_pentile/%s_%.2f__%.2f,%.2f_c%d_g%d.csv",
+		sprintf_s(outfile, "./output/%s_%.2f__%.2f,%.2f_c%d_g%d.csv",
 			prefix, sigmax, sigmay, to,
 			sample_of_center, sample_of_guass_point);
 		ofstream out(outfile);
@@ -651,7 +651,7 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 		sigmax = from;
 		loss = 1000000;
 		flag = -1;
-		sprintf_s(outfile, "./output_pentile/%s_iso_c%d_g%d.csv",
+		sprintf_s(outfile, "./output/%s_iso_c%d_g%d.csv",
 			prefix, sample_of_center, sample_of_guass_point);
 		cout << endl << "write to " << outfile << endl;
 		ofstream out(outfile);

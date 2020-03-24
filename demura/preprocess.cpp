@@ -4,14 +4,14 @@
 using namespace std;
 using namespace cv;
 using namespace Eigen;
-Mat mask;
 
-void preprocess(const char *f1, const char *f2, const char *f3, const char *outfile)
+void preprocess(vector<Mat>& rgb,
+	int low_limit, const char *outfile, Mat& mask)
 {
-	const int ks = 3, sigma = 2, scale = 255 / 100, erode_ks = 19;
-	Mat img_b = imread(f1),
-		img_g = imread(f2),
-		img_r = imread(f3);
+	const int ks = 3, sigma = 2, /*low_limit = 255 / 100,*/ erode_ks = 7;
+	Mat img_b = rgb[BLUE].clone(),
+		img_g = rgb[GREEN].clone(),
+		img_r = rgb[RED].clone();
 	cvtColor(img_b, img_b, CV_BGR2GRAY);
 	cvtColor(img_g, img_g, CV_BGR2GRAY);
 	cvtColor(img_r, img_r, CV_BGR2GRAY);
@@ -24,9 +24,9 @@ void preprocess(const char *f1, const char *f2, const char *f3, const char *outf
 	{
 		for (int j = 0; j < img_b.cols; j++)
 		{
-			if (img_b.at<byte>(i, j) > scale 
-				&& img_g.at<byte>(i, j) > scale 
-				&& img_r.at<byte>(i, j) > scale)
+			if (img_b.at<byte>(i, j) > low_limit
+				&& img_g.at<byte>(i, j) > low_limit
+				&& img_r.at<byte>(i, j) > low_limit)
 			{
 				mask.at<byte>(i, j) = 255;
 			}
@@ -39,6 +39,6 @@ void preprocess(const char *f1, const char *f2, const char *f3, const char *outf
 	Mat element = getStructuringElement(MORPH_RECT, Size(erode_ks, erode_ks));
 	erode(mask, mask, element);
 	//GaussianBlur(mask, mask, Size(5, 5), 2, 2);
-	cout << "output_pentile " << outfile << endl;
+	cout << "[output mask]: " << outfile << endl;
 	imwrite(outfile, mask);
 }

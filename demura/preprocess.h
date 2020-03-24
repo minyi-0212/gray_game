@@ -1,3 +1,3 @@
 #pragma once
 #include "main.h"
-void preprocess(const char *f1, const char *f2, const char *f3, const char *outfile);
+void preprocess(std::vector<cv::Mat>& rgb, int low_limit, const char *outfile, cv::Mat& mask);
