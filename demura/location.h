@@ -23,7 +23,7 @@ void find_OLED_location_with_rgb_combination(
 	const char *cross_file,
 	const char *output_selected_points_prefix,
 	int pentile_height,
-	std::vector<std::vector<std::vector<cv::Point>>>& centers_vec,
+	std::vector<std::vector<std::vector<std::pair<cv::Point, cv::Point>>>>& centers_vec,
 	std::vector<std::vector<std::vector<Eigen::VectorXd>>>& data,
 	std::vector<std::vector<cv::Point>>& centers_error,
 	std::vector<std::vector<std::pair<cv::Point, cv::Point>>> cross_points);

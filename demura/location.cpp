@@ -1378,13 +1378,14 @@ void find_OLED_cross(const char *img_file, const char *cross_file,
 }
 
 // change from find_OLED_location_with_mask
+vector<int> locate_interval({ 2,1,2 });
 void process(const Mat& rgb, const Mat& mask,
 	const char *outfile_selected_point_name,
 	const char *outfile_set_3x3_region_name, 
 	vector<pair<Point, Point>> cross_points, // start from index 9
-	vector<vector<Point>>& centers_vec,
+	vector<vector<pair<Point, Point>>>& centers_vec,
 	vector<vector<VectorXd>>& data,
-	vector<Point>& centers_error, int start_cross, bool is_green)
+	vector<Point>& centers_error, int start_cross, RGB select_rgb)
 {
 	Performance p;
 	Mat img_copy = rgb.clone(),
@@ -1460,10 +1461,10 @@ void process(const Mat& rgb, const Mat& mask,
 	//const int start_cross = 9;
 	{
 		stack<Point> stack_of_points;
-		Point cur, last;
+		Point cur, last, locate;
 		const int low_limit = 3;
 		int  interval_x = 9;
-		if (is_green)
+		if (select_rgb == GREEN)
 			interval_x = 4;
 		//centers_vec.resize(line_head.size());
 		centers_vec.resize(cross_points.size() - start_cross);
@@ -1474,6 +1475,8 @@ void process(const Mat& rgb, const Mat& mask,
 			center_error_region << -1, -1, -1, -1, -1, -1, -1, -1, -1;
 			// left
 			cur = cross_points[hi+ start_cross].first;
+			locate = cross_points[hi + start_cross].second;
+			//cout << "before: " << cur << "," << locate << endl;
 			stack_of_points.push(cur);
 			while (mask.at<byte>(cur.y, cur.x) > 0)
 			{
@@ -1491,6 +1494,7 @@ void process(const Mat& rgb, const Mat& mask,
 					cur = last;
 					cur.x -= interval_x;
 				}
+				locate.x-=locate_interval[select_rgb];
 			}
 			while (!stack_of_points.empty())
 			{
@@ -1502,12 +1506,14 @@ void process(const Mat& rgb, const Mat& mask,
 					cur = last;
 					cur.x += interval_x;
 					centers_error.push_back(cur);
-					centers_vec[hi].push_back(cur);
+					centers_vec[hi].push_back({ cur, locate });
+					locate.x += locate_interval[select_rgb];
 					data[hi].push_back(center_error_region);
 				}
 				else
 				{
-					centers_vec[hi].push_back(cur);
+					centers_vec[hi].push_back({ cur, locate });
+					locate.x += locate_interval[select_rgb];
 					center_region << image.at<byte>(cur.y - 1, cur.x - 1),
 						image.at<byte>(cur.y - 1, cur.x),
 						image.at<byte>(cur.y - 1, cur.x + 1),
@@ -1522,6 +1528,7 @@ void process(const Mat& rgb, const Mat& mask,
 			}
 			// right
 			cur = cross_points[hi + start_cross].first;
+			//cout <<"after: "<< cur <<","<< locate << endl;
 			while (1)
 			{
 				last = cur;
@@ -1539,12 +1546,14 @@ void process(const Mat& rgb, const Mat& mask,
 					cur = last;
 					cur.x += interval_x;
 					centers_error.push_back(cur);
-					centers_vec[hi].push_back(cur);
+					centers_vec[hi].push_back({ cur, locate });
+					locate.x += locate_interval[select_rgb];
 					data[hi].push_back(center_error_region);
 				}
 				else
 				{
-					centers_vec[hi].push_back(cur);
+					centers_vec[hi].push_back({ cur, locate });
+					locate.x += locate_interval[select_rgb];
 					center_region << image.at<byte>(cur.y - 1, cur.x - 1),
 						image.at<byte>(cur.y - 1, cur.x),
 						image.at<byte>(cur.y - 1, cur.x + 1),
@@ -1570,7 +1579,7 @@ void process(const Mat& rgb, const Mat& mask,
 			sum += p.size();
 			for (auto pp : p)
 			{
-				img_copy.at<Vec3b>(pp.y, pp.x) = Vec3b(0, 255, 0);
+				img_copy.at<Vec3b>(pp.first.y, pp.first.x) = Vec3b(0, 255, 0);
 			}
 		}
 		for (auto p : cross_points)
@@ -1698,7 +1707,7 @@ void find_OLED_location_with_rgb_combination(
 	const char *cross_file,
 	const char *output_selected_points_prefix,
 	int pentile_width,
-	vector<vector<vector<Point>>>& centers_vec,
+	vector<vector<vector<pair<Point, Point>>>>& centers_vec,
 	vector<vector<vector<VectorXd>>>& data,
 	vector<vector<Point>>& centers_error,
 	vector<vector<pair<Point,Point>>> cross_points)
@@ -1827,7 +1836,7 @@ void find_OLED_location_with_rgb_combination(
 		cout <<"[output] :"<< selected << endl;
 		cout << output_selected_points_prefix << endl;
 		process(rgb[i], mask, selected, region3x3, cross_points[i], 
-			centers_vec[i], data[i], centers_error[i], 9, i == GREEN);
+			centers_vec[i], data[i], centers_error[i], 9, (RGB)i);
 		// first 9 points are cross points
 	}
 }

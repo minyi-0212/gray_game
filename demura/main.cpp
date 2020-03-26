@@ -63,22 +63,80 @@ void merge()
 	}
 	imwrite("./output/merge.png", bgr);
 }
+#include <algorithm>
+extern void draw_cross(Mat& img, int x, int y, Vec3b color);
+void generate_compensate_value(const char* img_file)
+{
+	/*Mat img = imread(img_file), bgr[3],
+		matr(img.size(), CV_8UC3),
+		matg(img.size(), CV_8UC3),
+		matb(img.size(), CV_8UC3),
+		pentile_r, pentile_g, pentile_b;
+	cout << img.type() <<","<< CV_8UC3 << endl;
+	for (int y = 0; y < img.rows; y++)
+	{
+		for (int x = 0; x < img.cols; x++)
+		{
+			matb.at<Vec3b>(y, x)[0] = img.at<Vec3b>(y, x)[0];
+			matg.at<Vec3b>(y, x)[1] = img.at<Vec3b>(y, x)[1];
+			matr.at<Vec3b>(y, x)[2] = img.at<Vec3b>(y, x)[2];
+		}
+	}
 
+	rgb2pentile(matb, pentile_b);
+	imwrite("./output/result_pentile_b.bmp", pentile_b);
+	rgb2pentile(matg, pentile_g);
+	imwrite("./output/result_pentile_g.bmp", pentile_g);
+	rgb2pentile(matr, pentile_r);
+	imwrite("./output/result_pentile_r.bmp", pentile_r);*/
+	int h = 2436, w = 752 / 2 * 3;
+	Mat img(Size(w, h), CV_8UC3), pentile;
+	vector<int> value({ 4,8,11,16,23,32,64 }),
+		cross_value({ 64,64,64,64,64,64,32 });
+	vector<int> need_x({ 60,1060 }), need_y({ 130, h - 130 });
+	for (int v = 0; v < value.size(); v++)
+	{
+		for (int y = 0; y < img.rows; y++)
+		{
+			for (int x = 0; x < img.cols; x++)
+			{
+				img.at<Vec3b>(y, x)[1] = value[v];
+			}
+		}
+
+		for (auto y : need_y)
+		{
+			for (auto x : need_x)
+			{
+				draw_cross(img, x, y, Vec3b(0, cross_value[v], 0));
+			}
+		}
+		char path[MAX_PATH];
+		sprintf_s(path, "./output/g_%d.bmp", value[v]);
+		imwrite(path, img);
+		rgb2pentile(img, pentile);
+		sprintf_s(path, "./output/pentile_g_%d.bmp", value[v]);
+		imwrite(path, pentile);
+	}
+}
 /*
 int xy, // x:0, y:1, no sigma compute:3
 double from, double to, double another, double add, const char* prefix
 */
 int main(int argc, char* argv[])
 {
-	String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
-		outpath("E:/coding/gray_game/demura/output");
+	/*String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
+		outpath("E:/coding/gray_game/demura/output");*/
+	String inpath("./input2.2.2_pentile"),
+		outpath("./output");
 	_mkdir(outpath.c_str());
-	int pentile_height = 2436;
-	//draw_pattern2("./output/test2", 752, pentile_height);
+	int pentile_width = 752, pentile_height = 2436;
+	//draw_pattern2("./output/test2", pentile_width, pentile_height);
 	//test_pentile();
 	//merge();
-	//system("pause");
-	//return 0;
+	generate_compensate_value("./output/result_rotate_90.bmp");
+	system("pause");
+	return 0;
 
 	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH], 
 		//output
@@ -112,7 +170,7 @@ int main(int argc, char* argv[])
 	//vector<vector<Point>> centers_vec;
 	//vector<vector<VectorXd>> data;
 	vector<vector<Point>> centers_error(3);
-	vector<vector<vector<Point>>> centers_vec(3);
+	vector<vector<vector<pair<Point, Point>>>> relationship(3);
 	vector<vector<vector<VectorXd>>> data(3);
 	vector<vector<pair<Point,Point>>> cross_points(3);
 	//for (int i = 12000; i >= 7000; i -= 1000)
@@ -136,16 +194,18 @@ int main(int argc, char* argv[])
 		
 		//find_OLED_cross(b_file, cross, output_selected_points_prefix, centers_vec, data, centers_error);
 		find_OLED_location_with_rgb_combination(rgb, mask, cross_file,
-			outpath.c_str(), pentile_height, centers_vec, data, centers_error, cross_points);
+			outpath.c_str(), pentile_height, relationship, data, centers_error, cross_points);
 		cout << "--------------------" << endl;
 
-		/*if (argc >= 7)
-		{
-			cout << "demura..." << endl;
-			compute_dumura(centers_vec, data, centers_error, atoi(argv[1]),
-				atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), argv[6], select_rgb,
-				output_csv);
-		}*/
+		//if (argc >= 7)
+		//{
+		//	cout << "demura..." << endl;
+		//	/*compute_dumura(centers_vec, data, centers_error, atoi(argv[1]),
+		//		atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), argv[6], select_rgb,
+		//		output_csv);*/
+		//}
+		compute_dumura_by_combile_single_rgb(relationship, data, centers_error, cross_points,
+			outpath.c_str(), pentile_height, pentile_width / 2 * 3);
 	}
 	system("pause");
 	return 0;
