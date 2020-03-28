@@ -5,6 +5,7 @@
 #include <flann/flann.hpp>
 #include <flann/util/matrix.h>
 #include <unordered_map>
+#include <numeric>
 
 const double PI = 4.0*atan(1.0); //圆周率π赋值
 using namespace std;
@@ -217,8 +218,7 @@ void draw_pic_with_scalar(const int y, const int x, const Vec3b val, Mat& img)
 	}
 }
 
-void query_by_kdtree
-(const vector<vector<VectorXd>>& data, const vector<VectorXd>& kernels,
+void query_by_kdtree(const vector<vector<VectorXd>>& data, const vector<VectorXd>& kernels,
 	flann::Matrix<int>& indices, flann::Matrix<double>& dists)
 {
 	vector<double> kd_tree_kernel(kernels.size() * 9, 0),
@@ -249,6 +249,53 @@ void query_by_kdtree
 	index.knnSearch(query, indices, dists, nns_number, flann::SearchParams(128));
 }
 
+void query_by_kdtree(const vector<Mat>& data, 
+	const vector<vector<pair<Point, Point>>>& relationship,
+	const vector<VectorXd>& kernels,
+	vector<flann::Matrix<int>>& indices, vector<flann::Matrix<double>>& dists)
+{
+	indices.resize(data.size());
+	dists.resize(data.size());
+	vector<double> kd_tree_kernel(kernels.size() * 9, 0);
+	for (int i = 0; i < kernels.size(); i++)
+	{
+		VectorXd tmp = kernels[i];
+		tmp.normalize();
+		for (int mi = 0; mi < 9; mi++)
+			kd_tree_kernel[i * 9 + mi] = tmp[mi];
+	}
+	for (int di = 0; di < data.size(); di++)
+	{
+		vector<double> kd_tree_data;
+		Point cur;
+		VectorXd center_region;
+		for (auto d : relationship)
+			for (auto dd : d)
+			{
+				cur = dd.first;
+				center_region << data[di].at<byte>(cur.y - 1, cur.x - 1),
+					data[di].at<byte>(cur.y - 1, cur.x),
+					data[di].at<byte>(cur.y - 1, cur.x + 1),
+					data[di].at<byte>(cur.y, cur.x - 1),
+					data[di].at<byte>(cur.y, cur.x),
+					data[di].at<byte>(cur.y, cur.x + 1),
+					data[di].at<byte>(cur.y + 1, cur.x - 1),
+					data[di].at<byte>(cur.y + 1, cur.x),
+					data[di].at<byte>(cur.y + 1, cur.x + 1);
+				center_region.normalize();
+				for (int mi = 0; mi < 9; mi++)
+					kd_tree_data.push_back(center_region[mi]);
+			}
+		flann::Matrix<double> points_mat = flann::Matrix<double>(&kd_tree_kernel[0], kernels.size(), 9);
+		flann::Matrix<double> query = flann::Matrix<double>(&kd_tree_data[0], kd_tree_data.size() / 9, 9);
+		int nns_number = 1;
+		indices[di] = flann::Matrix<int>(new int[query.rows*nns_number], query.rows, nns_number);
+		dists[di] = flann::Matrix<double>(new double[query.rows*nns_number], query.rows, nns_number);
+		flann::Index<flann::L2<double>> index(points_mat, flann::KDTreeIndexParams(4));
+		index.buildIndex();
+		index.knnSearch(query, indices[di], dists[di], nns_number, flann::SearchParams(128));
+	}
+}
 
 void match(const vector<vector<Point>>& centers_vec,
 	const vector<vector<VectorXd>>& data,
@@ -702,87 +749,181 @@ void compute_dumura(vector<vector<Point>>& centers_vec,
 void match_with_location(Mat& result, const char *outfile, const char *csvfile,
 	const vector<vector<pair<Point, Point>>>& relationship,
 	const vector<vector<VectorXd>>& data,
+	vector<Mat>& pic,
 	const vector<VectorXd>& kernels, RGB select_rgb)
 {
 	flann::Matrix<int> indices;
 	flann::Matrix<double> dists;
 	query_by_kdtree(data, kernels, indices, dists);
 
-	vector<double> guassian_mul_value(indices.rows, 0);
+	vector<vector<double>> guassian_mul_value(pic.size(), vector<double>(indices.rows, 0));
 	set<int> index_set;
 	VectorXd ones(9);
-	ones << 1, 1, 1,
-		1, 1, 1,
-		1, 1, 1;
+	ones << 1, 1, 1, 1, 1, 1, 1, 1, 1;
 	int centers_id = 0;
-	double m = 0;
-	ofstream out(csvfile);
-	long long sum = 0;
-	int error_count = 0;
+	Point cur;
+	VectorXd center_region(9);
 	for (int vj = 0; vj < relationship.size(); vj++)
 	{
 		for (int vi = 0; vi < relationship[vj].size(); vi++)
 		{
-			if (data[vj][vi][0] < 0)
-			{
-				/*result.at<cv::Vec3b>(relationship[vj][vi].second.y,
-					relationship[vj][vi].second.x)[select_rgb] = 255;*/
-				centers_id++; 
-				error_count++;
-				continue;
-			}
-			//int index = find_most_similar(data[vj][vi].normalized(), kernels_normalized);
 			int index = indices[centers_id][0];
-			index_set.insert(index);
 			MatrixXd A(kernels[index]);
-			double value = A.colPivHouseholderQr().solve(data[vj][vi])[0];
-			m = __max(m, value);
-			out << value << endl;
-			sum += value;
-			//draw_pic_with_kernel(centers_vec[vj][vi].first.y, centers_vec[vj][vi].first.x,
-				//value, kernels[index], img_output);
-			//draw_pic_with_kernel(centers_vec[vj][vi].first.y, centers_vec[vj][vi].first.x,
-				//480, kernels[index], img_480);
-			/*Vec3b color(0, 0, 0);
-			color[select_rgb] = sqrt(value);
-			result.at<Vec3b>(relationship[vj][vi].second.y, relationship[vj][vi].second.x) = color;*/
-			//result.at<Vec3b>(relationship[vj][vi].second.y,
-			//	relationship[vj][vi].second.x)[select_rgb] = value;//__min(value,255);
-			//result.at<cv::Vec3b>(relationship[vj][vi].second.y,
-				//relationship[vj][vi].second.x)[select_rgb] = value / 5;//__min(value,255);
-			guassian_mul_value[centers_id] = value;
+			if (data[vj][vi][0] != -1)
+			{
+				for (int pici = 0; pici < pic.size(); pici++)
+				{
+					cur = relationship[vj][vi].first;
+					center_region << pic[pici].at<byte>(cur.y - 1, cur.x - 1),
+						pic[pici].at<byte>(cur.y - 1, cur.x),
+						pic[pici].at<byte>(cur.y - 1, cur.x + 1),
+						pic[pici].at<byte>(cur.y, cur.x - 1),
+						pic[pici].at<byte>(cur.y, cur.x),
+						pic[pici].at<byte>(cur.y, cur.x + 1),
+						pic[pici].at<byte>(cur.y + 1, cur.x - 1),
+						pic[pici].at<byte>(cur.y + 1, cur.x),
+						pic[pici].at<byte>(cur.y + 1, cur.x + 1);
+					guassian_mul_value[pici][centers_id] = A.colPivHouseholderQr().solve(center_region)[0];
+				}
+			}
+			index_set.insert(index);
 			centers_id++;
 		}
-		//out << endl;
+	}
+	int pic_compute_id = 4;
+	double mean;
+	{
+		int cnt = 0;
+		double sum = 0.0, accum = 0.0,
+			mmax = guassian_mul_value[pic_compute_id][0],
+			mmin = INT_MAX;
+		for (auto d : guassian_mul_value[pic_compute_id])
+		{
+			if (d > 0.001)
+			{
+				sum += d;
+				cnt++;
+				if (mmin > d) mmin = d;
+				if (mmax < d) mmin = d;
+			}
+		}
+		mean = sum / cnt;
+		for (auto d : guassian_mul_value[pic_compute_id])
+		{
+			if (d > 0.001)
+			{
+				accum += (d - mean)*(d - mean);
+			}
+		}
+		double stdev = sqrt(accum / cnt); //方差
+	
+		cout << "used kernels count: " << index_set.size() << endl;
+		cout << "sum = " << sum << ", size = " << guassian_mul_value[pic_compute_id].size() << endl
+			<< "min = " << mmin << ", max = " << mmax << endl
+			<< "mean = " << mean << ", stdev = " << stdev << endl;
+	}
+	vector<int> capture_pentile_g_value({ 4,8,11,16,23,32,64 });
+	centers_id = 0;
+	vector<double> mura_value;
+	for (int vj = 0; vj < relationship.size(); vj++)
+	{
+		for (int vi = 0; vi < relationship[vj].size(); vi++)
+		{
+			if (guassian_mul_value[pic_compute_id][centers_id] < 0.001 && 
+				relationship[vj][vi].second.x >= 0)
+				result.at<cv::Vec3b>(relationship[vj][vi].second.y,
+							relationship[vj][vi].second.x)[select_rgb] = 64;
+			else if(guassian_mul_value[0][centers_id] >= mean)
+				result.at<cv::Vec3b>(relationship[vj][vi].second.y,
+					relationship[vj][vi].second.x)[select_rgb] = capture_pentile_g_value[0];
+			else if (guassian_mul_value[guassian_mul_value.size()-1][centers_id] <= mean)
+				result.at<cv::Vec3b>(relationship[vj][vi].second.y,
+					relationship[vj][vi].second.x)[select_rgb] = *capture_pentile_g_value.rbegin();
+			else
+			{
+				int l = 0, r = pic.size() - 1, mid;
+				while (l < r)
+				{
+					mid = (l + r) >> 1;
+					if (guassian_mul_value[mid][centers_id] == mean)
+					{
+						r = mid;
+						break;
+					}
+					else if (guassian_mul_value[mid][centers_id] > mean)
+						r = mid;
+					else 
+						l = mid + 1;
+				}
+				/*cout << "binary search end ..." << endl;
+				cout <<"l="<<l<<", r="<<r<<","
+					<< capture_pentile_g_value[r - 1] << ", " 
+					<< guassian_mul_value[r-1][centers_id] << ", " 
+					<< capture_pentile_g_value[r] << "," 
+					<< guassian_mul_value[r][centers_id] << ","
+					<< (mean*(capture_pentile_g_value[r] - capture_pentile_g_value[r - 1]) +
+						capture_pentile_g_value[r - 1] * guassian_mul_value[r][centers_id] -
+						capture_pentile_g_value[r] * guassian_mul_value[r - 1][centers_id]) /
+						(guassian_mul_value[r][centers_id] - guassian_mul_value[r - 1][centers_id]) << ","
+					<< mean
+					<< endl;*/
+				double tmp = (mean*(capture_pentile_g_value[r] - capture_pentile_g_value[r - 1]) +
+					capture_pentile_g_value[r - 1] * guassian_mul_value[r][centers_id] -
+					capture_pentile_g_value[r] * guassian_mul_value[r - 1][centers_id]) /
+					(guassian_mul_value[r][centers_id] - guassian_mul_value[r - 1][centers_id]);
+				result.at<cv::Vec3b>(relationship[vj][vi].second.y,
+					relationship[vj][vi].second.x)[select_rgb] = tmp;
+				mura_value.push_back(tmp);
+			}
+			centers_id++;
+		}
+	}
+
+	ofstream out("./output/tmp.csv");
+	{
+		double sum = 0.0, accum = 0.0,
+			mmax = mura_value[0],
+			mmin = INT_MAX;
+		int cnt = 0;
+		for (auto d : mura_value)
+		{
+			if (d > 0.001)
+			{
+				sum += d;
+				cnt++;
+				if (mmin > d) mmin = d;
+				if (mmax < d) mmax = d;
+			}
+		}
+		mean = sum / cnt;
+		for (auto d : guassian_mul_value[pic_compute_id])
+		{
+			if (d > 0.001)
+			{
+				accum += (d - mean)*(d - mean);
+			}
+		}
+		double stdev = sqrt(accum / cnt); //方差
+		ofstream out("./output/tmp.csv");
+		out << "sum,mean,min,max,stdev" << endl
+			<< sum << "," << mean << "," << mmin << "," << mmax << "," << stdev << endl;
+		for (int i = 0; i < mura_value.size(); i++)
+		{
+			out << mura_value[i] << ",";
+			if ((i + 1) % 100 == 0)
+				out << endl;
+		}
 	}
 	out.close();
-	double mean = sum * 1.0 / (centers_id - error_count);
-	cout << sum <<","<< mean << endl;
-	mean *= 16;
-	centers_id = 0;
-	for (int vj = 0; vj < relationship.size(); vj++)
-	{
-		for (int vi = 0; vi < relationship[vj].size(); vi++)
-		{
-			if (guassian_mul_value[centers_id] < 0.001)
-				result.at<cv::Vec3b>(relationship[vj][vi].second.y,
-					relationship[vj][vi].second.x)[select_rgb] = 255;
-			else
-				result.at<cv::Vec3b>(relationship[vj][vi].second.y,
-					relationship[vj][vi].second.x)[select_rgb] =
-				__min(mean / guassian_mul_value[centers_id], 255);//__min(value,255);
-			centers_id++;
-		}
-	}
-	cout << "used kernels count: " << index_set.size() << endl;
-	cout << "max =" << m << endl;
 	imwrite(outfile, result);
 }
 
 void compute_dumura_by_combile_single_rgb(vector<vector<vector<pair<Point, Point>>>>& relationship,
 	vector<vector<vector<VectorXd>>>& data,
 	vector<vector<Point>>& centers_error,
-	vector<vector<pair<Point, Point>>> cross_points, const char* output_prefix,
+	vector<vector<pair<Point, Point>>>& cross_points,
+	vector<Mat>& pic,
+	const char* output_prefix,
 	int width, int height)
 {
 	Performance p;
@@ -793,10 +934,10 @@ void compute_dumura_by_combile_single_rgb(vector<vector<vector<pair<Point, Point
 	// blue 1.06 0.92
 	// green 0.71, 0.85
 	//double sigmax = 0.77, sigmay = 0.77; 
-	Mat img_result = Mat(Size(2500, 1500), CV_8UC3, Scalar(0, 0, 0));
+	Mat img_result = Mat(Size(3000, 2000), CV_8UC3, Scalar(0, 0, 0));
 	vector<double> sigma_bgr({ 0.66, 0.55, 0.64 });
-	for (int i = 0; i < relationship.size(); i++)
-	//int i = 2;
+	//for (int i = 0; i < relationship.size(); i++)
+	int i = 1;
 	{
 		/*double sigma_init, sigma, loss_old, loss = 1000000;
 		bool flag = false;
@@ -838,7 +979,8 @@ void compute_dumura_by_combile_single_rgb(vector<vector<vector<pair<Point, Point
 			output_prefix, i == RED ? "r" : (i == BLUE ? "b" : "g"));
 		sprintf(result_csv, "%s/result_%s.csv",
 			output_prefix, i == RED ? "r" : (i == BLUE ? "b" : "g"));
-		match_with_location(img_result, result_file, result_csv, relationship[i], data[i], kernels, (RGB)i);
+		match_with_location(img_result, result_file, result_csv, 
+			relationship[i], data[i], pic, kernels, (RGB)i);
 	}
 	p.endAndPrint();
 	cout << "total kernels count:" << kernels.size() << endl;
@@ -846,17 +988,18 @@ void compute_dumura_by_combile_single_rgb(vector<vector<vector<pair<Point, Point
 	sprintf(result_file, "%s/result.png", output_prefix);
 	img_result = img_result(cv::Rect(0, 0, width, height));
 	imwrite(result_file, img_result);
-	Mat rgb(Size(height, width), CV_8UC3);
+	Scalar scal(0, 0, 0);
+	Mat rgb(Size(height, width), CV_8UC3, scal);
 	for (int y = 0; y < height; y++)
 	{
 		for (int x = 0; x < width; x++)
 		{
-			rgb.at<Vec3b>(width - 1 - x, y)[0] =
-				img_result.at<Vec3b>(y, x)[0] == 0 ? 255 : (int)img_result.at<Vec3b>(y, x)[0];
+			//rgb.at<Vec3b>(width - 1 - x, y)[0] =
+				//img_result.at<Vec3b>(y, x)[0] == 0 ? 255 : (int)img_result.at<Vec3b>(y, x)[0];
 			rgb.at<Vec3b>(width - 1 - x, y)[1] =
-				img_result.at<Vec3b>(y, x)[1] == 0 ? 255 : (int)img_result.at<Vec3b>(y, x)[1];
-			rgb.at<Vec3b>(width - 1 - x, y)[2] = 
-				img_result.at<Vec3b>(y, x)[2] == 0 ? 255 : (int)img_result.at<Vec3b>(y, x)[2];
+				img_result.at<Vec3b>(y, x)[1] == 0 ? 64 : (int)img_result.at<Vec3b>(y, x)[1];
+			//rgb.at<Vec3b>(width - 1 - x, y)[2] = 
+				//img_result.at<Vec3b>(y, x)[2] == 0 ? 255 : (int)img_result.at<Vec3b>(y, x)[2];
 		}
 	}
 	sprintf(result_file, "%s/result_rotate_90.bmp", output_prefix);

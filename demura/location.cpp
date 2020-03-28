@@ -1029,24 +1029,24 @@ void get_box_corner_points(const Mat& mask, vector<Point>& corners, int low_limi
 			break;
 		}
 	}
-	corners.resize(9);
-	//// 0 1
-	//// 2 3
-	//corners[0].x = corners[2].x = xs;
-	//corners[1].x = corners[3].x = xe;
-	//corners[0].y = corners[1].y = ys;
-	//corners[2].y = corners[3].y = ye;
+	// 0 1
+	// 2 3
+	corners.resize(4);
+	corners[0].x = corners[2].x = xs;
+	corners[1].x = corners[3].x = xe;
+	corners[0].y = corners[1].y = ys;
+	corners[2].y = corners[3].y = ye;
 	
-	// 0 1 2
-	// 3 4 5
-	// 6 7 8
-	
-	corners[0].x = corners[3].x = corners[6].x = xs;
-	corners[1].x = corners[4].x = corners[7].x = (xe + xs) / 2;
-	corners[2].x = corners[5].x = corners[8].x = xe;
-	corners[0].y = corners[1].y = corners[2].y = ys;
-	corners[3].y = corners[4].y = corners[5].y = (ye + ys) / 2;
-	corners[6].y = corners[7].y = corners[8].y = ye;
+	//// 0 1 2
+	//// 3 4 5
+	//// 6 7 8
+	//corners.resize(9);
+	//corners[0].x = corners[3].x = corners[6].x = xs;
+	//corners[1].x = corners[4].x = corners[7].x = (xe + xs) / 2;
+	//corners[2].x = corners[5].x = corners[8].x = xe;
+	//corners[0].y = corners[1].y = corners[2].y = ys;
+	//corners[3].y = corners[4].y = corners[5].y = (ye + ys) / 2;
+	//corners[6].y = corners[7].y = corners[8].y = ye;
 }
 
 void find_OLED_cross(const char *img_file, const char *cross_file,
@@ -1391,7 +1391,7 @@ void process(const Mat& rgb, const Mat& mask,
 	Mat img_copy = rgb.clone(),
 		image = rgb.clone();
 	cvtColor(image, image, CV_BGR2GRAY);
-	line(img_copy, cross_points[0].first, cross_points[6].first, Scalar(0, 255, 0), 1);
+	line(img_copy, cross_points[0].first, cross_points[2].first, Scalar(0, 255, 0), 1);
 	imwrite(outfile_set_3x3_region_name, img_copy);
 	cout << "[find all points]in process..." << endl;
 
@@ -1616,6 +1616,194 @@ void process(const Mat& rgb, const Mat& mask,
 	p.endAndPrint();
 }
 
+const int OLED_pick_region = 4;
+void find_LED_points_in_region(
+	Point& left_top_point,
+	const Mat& image, const Mat& mask, 
+	const int interval_x,
+	const int lorr = 1 // 1: right, -1: left
+)
+{
+
+}
+
+void process2(const Mat& rgb, const Mat& mask,
+	const char *outfile_selected_point_name,
+	const char *outfile_set_3x3_region_name,
+	const vector<pair<Point, Point>>& cross_points, // start from index 4
+	vector<vector<pair<Point, Point>>>& centers_vec,
+	vector<vector<VectorXd>>& data,
+	vector<Point>& centers_error, 
+	int start_cross, // 4
+	RGB select_rgb)
+{
+	cout << "[find all points] in process " << cross_points.size() - start_cross << "..." << endl;
+	Performance p;
+	Mat img_copy = rgb.clone(), image = rgb.clone();
+	cvtColor(image, image, CV_BGR2GRAY);
+
+	Performance pp;
+	{
+		stack<Point> stack_of_points;
+		Point left[OLED_pick_region], cur, last, locate[OLED_pick_region];
+		const int low_limit = 3, interval_x = select_rgb == GREEN ? 4 : 9;
+		VectorXd center_region(9), center_error_region(9);
+		center_error_region << -1, -1, -1, -1, -1, -1, -1, -1, -1;
+		//centers_vec.resize(line_head.size());
+		centers_vec.resize(cross_points.size() - start_cross);
+		data.resize(cross_points.size() - start_cross);
+		bool flag;
+		for (int hi = 0; hi < centers_vec.size(); hi += OLED_pick_region)
+		{
+			// right
+			for (int li = 0; li < OLED_pick_region && hi + start_cross + li < cross_points.size(); li++)
+			{
+				left[li] = cross_points[hi + start_cross + li].first; // line [hi, hi+OLED_pick_region)
+				locate[li] = cross_points[hi + start_cross + li].second;
+			}
+			while (1)
+			{
+				flag = false;
+				for (int li = 0; li < OLED_pick_region; li++) 
+				{
+					if(flag || mask.at<byte>(left[li].y, left[li].x) != 0)
+						flag = true;
+				}
+				if (!flag)
+					break;
+				for (int li = 0; li < OLED_pick_region && hi + li< centers_vec.size(); li++ )
+				{
+					cur = left[li];
+					for (int x = 0; x < OLED_pick_region; cur.x += interval_x, x++)
+					{
+						if (mask.at<byte>(cur.y, cur.x) == 0) {
+							centers_error.push_back(cur);
+							centers_vec[hi + li].push_back({ cur, locate[li] });
+							locate[li].x += locate_interval[select_rgb];
+							data[hi + li].push_back(center_error_region);
+							continue;
+						}
+						update(image, cur);
+						update(image, cur);
+						{
+							centers_vec[hi + li].push_back({ cur, locate[li] });
+							locate[li].x += locate_interval[select_rgb];
+							center_region << image.at<byte>(cur.y - 1, cur.x - 1),
+								image.at<byte>(cur.y - 1, cur.x),
+								image.at<byte>(cur.y - 1, cur.x + 1),
+								image.at<byte>(cur.y, cur.x - 1),
+								image.at<byte>(cur.y, cur.x),
+								image.at<byte>(cur.y, cur.x + 1),
+								image.at<byte>(cur.y + 1, cur.x - 1),
+								image.at<byte>(cur.y + 1, cur.x),
+								image.at<byte>(cur.y + 1, cur.x + 1);
+							data[hi + li].push_back(center_region);
+						}
+					}
+					left[li] = cur;
+				}
+			}
+			
+			// left
+			for (int li = 0; li < OLED_pick_region && hi + start_cross + li < cross_points.size(); li++)
+			{
+				left[li] = cross_points[hi + start_cross + li].first; // line [hi, hi+OLED_pick_region)
+				left[li].x -= interval_x;
+				locate[li] = cross_points[hi + start_cross + li].second;
+				locate[li].x -= locate_interval[select_rgb];
+			}
+			while (1)
+			{
+				flag = false;
+				for (int li = 0; li < OLED_pick_region; li++)
+				{
+					if (flag || mask.at<byte>(left[li].y, left[li].x) != 0)
+						flag = true;
+				}
+				if (!flag)
+					break;
+				for (int li = 0; li < OLED_pick_region && hi + li < centers_vec.size(); li++)
+				{
+					cur = left[li];
+					for (int x = OLED_pick_region - 1;x >= 0; cur.x -= interval_x, x--)
+					{
+						if (mask.at<byte>(cur.y, cur.x) == 0) {
+							centers_error.push_back(cur);
+							centers_vec[hi + li].push_back({ cur, locate[li] });
+							locate[li].x -= locate_interval[select_rgb];
+							data[hi + li].push_back(center_error_region);
+							continue;
+						}
+						update(image, cur);
+						update(image, cur);
+						{
+							centers_vec[hi + li].push_back({ cur, locate[li] });
+							locate[li].x -= locate_interval[select_rgb];
+							center_region << image.at<byte>(cur.y - 1, cur.x - 1),
+								image.at<byte>(cur.y - 1, cur.x),
+								image.at<byte>(cur.y - 1, cur.x + 1),
+								image.at<byte>(cur.y, cur.x - 1),
+								image.at<byte>(cur.y, cur.x),
+								image.at<byte>(cur.y, cur.x + 1),
+								image.at<byte>(cur.y + 1, cur.x - 1),
+								image.at<byte>(cur.y + 1, cur.x),
+								image.at<byte>(cur.y + 1, cur.x + 1);
+							data[hi + li].push_back(center_region);
+						}
+					}
+					left[li] = cur;
+				}
+			}
+		}
+	}
+	pp.endAndPrint();
+
+	{
+		cout << "head size: " << cross_points.size() - 9 << endl;
+		int sum = 0;
+		cout << centers_vec.size() << "*" << centers_vec[510].size() << endl;
+		for (auto p : centers_vec)
+		{
+			sum += p.size();
+			for (auto pp : p)
+			{
+				img_copy.at<Vec3b>(pp.first.y, pp.first.x) = Vec3b(0, 255, 0);
+			}
+		}
+		//for (auto p : cross_points)
+			//img_copy.at<Vec3b>(p.first.y, p.first.x) = Vec3b(0, 0, 255);
+		cout << "total ceneter points size : " << sum << endl;
+		cout << "centers_error size : " << centers_error.size() << endl;
+		for (auto p : centers_error)
+		{
+			img_copy.at<Vec3b>(p.y, p.x) = Vec3b(0, 255, 255);
+		}
+		imwrite(outfile_selected_point_name, img_copy);
+	}
+	{
+		/*img_copy = Mat(img_copy.size(), CV_8UC3, Scalar(0, 0, 0));
+		vector<int> region({ -1,0,1 });
+		for (int vj = 0; vj < centers_vec.size(); vj++)
+		{
+			for (int vi = 0; vi < centers_vec[vj].size(); vi++)
+			{
+				for (int i = 0; i < region.size(); i++)
+				{
+					for (int j = 0; j < region.size(); j++)
+					{
+						int x = centers_vec[vj][vi].x + region[j],
+							y = centers_vec[vj][vi].y + region[i];
+						byte t = image.at<byte>(y, x);
+						img_copy.at<Vec3b>(y, x) = Vec3b(t, t, t);
+					}
+				}
+			}
+		}
+		imwrite(outfile_set_3x3_region_name, img_copy);*/
+	}
+	p.endAndPrint();
+}
+
 void location_one_column(const Mat& rgb, const Mat& mask,
 	vector<pair<Point, Point>>& relation, int region_size, int interval, bool is_green)
 {
@@ -1624,10 +1812,10 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 	//line(img_copy,relation[0].first, relation[6].first, Scalar(0,255,0), 1);
 	//imwrite("./output/tmp.png", img_copy);
 
-	double k = (relation[6].first.y - relation[0].first.y) / (relation[6].first.x - relation[0].first.x);
-	if (relation[6].first.y == relation[0].first.y)
+	double k = (relation[2].first.y - relation[0].first.y) / (relation[2].first.x - relation[0].first.x);
+	if (relation[2].first.y == relation[0].first.y)
 		k = 0;
-	double b = relation[6].first.y - k * relation[6].first.x;
+	double b = relation[2].first.y - k * relation[2].first.x;
 	Point p1(relation[0].first.x, relation[0].first.y), p2;
 	//cout << p1 << endl;
 	// down
@@ -1712,23 +1900,22 @@ void find_OLED_location_with_rgb_combination(
 	vector<vector<Point>>& centers_error,
 	vector<vector<pair<Point,Point>>> cross_points)
 {
-
 	IMG_WIDTH = rgb[0].cols;
 	IMG_HEIGHT = rgb[0].rows;
 	
 	{
 		const int cross_low_limit = 30, select_range = 500, select_interval = 9;
-		Mat cross = imread(cross_file), tmp = cross.clone();
+		/*Mat cross = imread(cross_file), tmp = cross.clone();
 		if (cross.data == NULL)
 		{
 			cout << "cross file read error: " << cross_file << endl;
 			return;
-		}
+		}*/
+		Mat cross = rgb[1].clone(), tmp = cross.clone();
 		// find corner 0,1,2; 3,4,5; 6,7,8
 		vector<Point> corners;
 		{
 			get_box_corner_points(mask, corners, 0);
-			tmp = cross.clone();
 			for (auto p : corners)
 			{
 				circle(tmp, p, 2, Scalar(0, 255, 0), 2);
@@ -1739,7 +1926,8 @@ void find_OLED_location_with_rgb_combination(
 		//vector<vector<Point>> cross_points(corners.size());
 		set<pair<int,int>> cross_points_set;
 		// this can read from cross_point_xy.txt
-		vector<int> need_y{ 130, 1216, 2306 }, need_x({ 30,60,90, 530,560,590, 1030,1060,1090 });
+		//vector<int> need_y{ 130, 1216, 2306 }, need_x({ 30,60,90, 530,560,590, 1030,1060,1090 });
+		vector<int> need_y{ 130, 2306 }, need_x({ 60 ,1060 });
 		vector<Point> locate_xy;
 		/*in the capture file
 		  g 0		1		2
@@ -1758,7 +1946,8 @@ void find_OLED_location_with_rgb_combination(
 		{
 			for (int i = need_y.size() - 1; i >= 0; i--)
 			{
-				locate_xy.push_back(Point(pentile_width - need_y[i] - (j % 3 == 0 ? 2 : 1), need_x[j]));
+				//locate_xy.push_back(Point(pentile_width - need_y[i] - (j % 3 == 0 ? 2 : 1), need_x[j]));
+				locate_xy.push_back(Point(pentile_width - need_y[i] - 1, need_x[j]));
 			}
 		}
 		{
@@ -1769,12 +1958,18 @@ void find_OLED_location_with_rgb_combination(
 				{
 					for (int x = corners[ci].x - select_range; x <= corners[ci].x + select_range; x++)
 					{
-						if (cross.at<Vec3b>(y, x)[0] > cross_low_limit
+						if ((cross.at<Vec3b>(y, x)[0] > cross_low_limit
 							&& cross.at<Vec3b>(y + select_interval, x)[0] > cross_low_limit
 							&& cross.at<Vec3b>(y, x + select_interval)[0] > cross_low_limit
 							&& cross.at<Vec3b>(y - select_interval, x)[0] > cross_low_limit
-							&& cross.at<Vec3b>(y, x - select_interval)[0] > cross_low_limit
-							&& cross.at<Vec3b>(y + select_interval, x + select_interval)[0] < cross_low_limit / 5)
+							&& cross.at<Vec3b>(y, x - select_interval)[0] > cross_low_limit)
+							||
+							(cross.at<Vec3b>(y, x)[0] > cross_low_limit
+								&& cross.at<Vec3b>(y + 2*select_interval, x)[0] > cross_low_limit
+								&& cross.at<Vec3b>(y, x + 2 * select_interval)[0] > cross_low_limit
+								&& cross.at<Vec3b>(y - 2 * select_interval, x)[0] > cross_low_limit
+								&& cross.at<Vec3b>(y, x - 2 * select_interval)[0] > cross_low_limit))
+							//&& cross.at<Vec3b>(y + select_interval, x + select_interval)[0] < cross_low_limit / 5)
 						{
 							//circle(tmp, Point(x0,y0), 2, Scalar(0, 255, 0), 2);
 							p_tmp.x = x;
@@ -1800,32 +1995,35 @@ void find_OLED_location_with_rgb_combination(
 						}
 					}
 				}
-			cout << cross_points_set.size() << endl;
+			cout <<"cross_points_set size: "<< cross_points_set.size() << endl;
 			int index = -1;
 			cross_points.resize(3);
 			for (auto cp : cross_points_set)
 			{
-				//cout << cp.size() << endl;
-				Vec3b color_tmp(0, 0, 0);
-				//index = (index + 1) % 9;
+				/*Vec3b color_tmp(0, 0, 0);
 				cross_points[index % 9 / 3].push_back({ Point(cp.second, cp.first),locate_xy[++index] });
 				color_tmp[index % 9 / 3] = 255;
 				tmp.at<Vec3b>(cp.first, cp.second) = color_tmp;
-				cout << cp.first << "," << cp.second <<"->"<< locate_xy[index] << endl;
+				cout << cp.first << "," << cp.second <<"->"<< locate_xy[index] << endl;*/
+				Vec3b color_tmp(0, 0, 0);
+				cross_points[1].push_back({ Point(cp.second, cp.first),locate_xy[++index] });
+				color_tmp[1] = 255;
+				tmp.at<Vec3b>(cp.first, cp.second) = color_tmp;
+				cout << cp.first << "," << cp.second << "->" << locate_xy[index] << endl;
 			}
 			char out_cross[MAX_PATH];
 			sprintf(out_cross, "%s/find_cross.png", output_selected_points_prefix);
 			imwrite(out_cross, tmp);
 		}
-		for (int i = 0; i < rgb.size(); i++)
-		//int i = 1;
+		//for (int i = 0; i < rgb.size(); i++)
+		int i = 1;
 		{
 			location_one_column(rgb[i], mask, cross_points[i], 4, 9, i == GREEN);
 		}
 	}
 
-	for (int i = 0; i < rgb.size(); i++)
-	//int i = 1;
+	//for (int i = 0; i < rgb.size(); i++)
+	int i = 1;
 	{
 		cout << (i == RED ? "r" : (i == BLUE ? "b" : "g")) << endl;
 		char selected[MAX_PATH], region3x3[MAX_PATH];
@@ -1835,8 +2033,8 @@ void find_OLED_location_with_rgb_combination(
 			output_selected_points_prefix, i == RED ? "r" : (i == BLUE ? "b" : "g"));
 		cout <<"[output] :"<< selected << endl;
 		cout << output_selected_points_prefix << endl;
-		process(rgb[i], mask, selected, region3x3, cross_points[i], 
-			centers_vec[i], data[i], centers_error[i], 9, (RGB)i);
-		// first 9 points are cross points
+		process2(rgb[i], mask, selected, region3x3, cross_points[i], 
+			centers_vec[i], data[i], centers_error[i], 4, (RGB)i);
+		// first 4or9 points are cross points
 	}
 }

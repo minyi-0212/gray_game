@@ -8,10 +8,10 @@ using namespace Eigen;
 void preprocess(vector<Mat>& rgb,
 	int low_limit, const char *outfile, Mat& mask)
 {
-	const int ks = 3, sigma = 2, /*low_limit = 255 / 100,*/ erode_ks = 7;
-	Mat img_b = rgb[BLUE].clone(),
-		img_g = rgb[GREEN].clone(),
-		img_r = rgb[RED].clone();
+	const int ks = 5, sigma = 2, /*low_limit = 255 / 100,*/ erode_ks = 7;
+	Mat img_b = rgb[BLUE].clone()*100,
+		img_g = rgb[GREEN].clone()*100,
+		img_r = rgb[RED].clone()*100;
 	cvtColor(img_b, img_b, CV_BGR2GRAY);
 	cvtColor(img_g, img_g, CV_BGR2GRAY);
 	cvtColor(img_r, img_r, CV_BGR2GRAY);
