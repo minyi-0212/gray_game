@@ -141,27 +141,27 @@ int main(int argc, char* argv[])
 {
 	/*String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
 		outpath("E:/coding/gray_game/demura/output");*/
-	String inpath("./input2.2.3_pentile"),
+	String inpath("./input2.2_20200330"),
 		outpath("./output");
 	_mkdir(outpath.c_str());
 	int pentile_width = 752, pentile_height = 2436;
 	//draw_pattern2("./output/test2", pentile_width, pentile_height);
 	//test_pentile();
 	//merge();
-	generate_compensate_value("./output/result_rotate_90.bmp");
+	/*generate_compensate_value("./output/result_rotate_90.bmp");
 	system("pause");
-	return 0;
+	return 0;*/
 
 	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH], 
 		//output
 		mask_file[MAX_PATH], cross_file[MAX_PATH],
 		output_csv[MAX_PATH];
-	int ms = 150;
-	sprintf_s(b_file, "%s/b.bmp", inpath.c_str(), ms);
-	sprintf_s(g_file, "%s/2号屏pentile_g_16-曝光时间%dms.bmp", inpath.c_str(), ms);
-	sprintf_s(r_file, "%s/r.bmp", inpath.c_str(), ms);
+	int ms = 960;
+	sprintf_s(b_file, "%s/2号屏pentile_g_16-曝光时间%dms-施耐德镜头光圈5.7.bmp", inpath.c_str(), ms);
+	sprintf_s(g_file, "%s/2号屏pentile_g_16-曝光时间%dms-施耐德镜头光圈5.7.bmp", inpath.c_str(), ms);
+	sprintf_s(r_file, "%s/2号屏pentile_g_16-曝光时间%dms-施耐德镜头光圈5.7.bmp", inpath.c_str(), ms);
 	//sprintf_s(cross_file, "%s/test2_pentile-35000us.bmp", inpath.c_str());
-	sprintf_s(cross_file, "%s/2号屏pentile_g_32-曝光时间%dms.bmp", inpath.c_str());
+	//sprintf_s(cross_file, "%s/2号屏pentile_g_32-曝光时间%dms.bmp", inpath.c_str());
 	sprintf_s(mask_file, "%s/mask.png", inpath.c_str(), ms);
 	Mat mask = imread(mask_file, CV_8UC1);
 	const RGB b = BLUE, g = GREEN, r = RED;
@@ -185,9 +185,9 @@ int main(int argc, char* argv[])
 	//vector<vector<Point>> centers_vec;
 	//vector<vector<VectorXd>> data;
 	vector<vector<Point>> centers_error(3);
-	vector<vector<vector<pair<Point, Point>>>> relationship(3);
-	vector<vector<vector<VectorXd>>> data(3);
-	vector<vector<pair<Point,Point>>> cross_points(3);
+	vector<vector<vector<LED_info>>> relationship(3);
+	//vector<vector<vector<VectorXd>>> data(3);
+	//vector<vector<pair<Point,Point>>> cross_points(3);
 	//for (int i = 12000; i >= 7000; i -= 1000)
 	{
 		//cout<<endl<<"write to "<< output_csv << endl;
@@ -208,17 +208,18 @@ int main(int argc, char* argv[])
 			centers_vec, data, centers_error, select_rgb == GREEN);*/
 		
 		//find_OLED_cross(b_file, cross, output_selected_points_prefix, centers_vec, data, centers_error);
-		find_OLED_location_with_rgb_combination(rgb, mask, cross_file,
-			outpath.c_str(), pentile_height, relationship, data, centers_error, cross_points);
+		find_OLED_location_with_rgb_combination(rgb, mask,
+			outpath.c_str(), pentile_height, relationship);
 		cout << "--------------------" << endl;
 		// to test 4,8,11,16,23,32,64 value
 		vector<Mat> pic;
 		{
-			vector<int> capture_pentile_g_value({ 4,8,11,16,23,32,64 });
+			//vector<int> capture_pentile_g_value({ 4,8,11,16,23,32,64 });
+			vector<int> capture_pentile_g_value({ 12,16,19,22,25,29,32 });
 			char path[MAX_PATH];
 			for (auto v : capture_pentile_g_value)
 			{
-				sprintf_s(path, "%s/2号屏pentile_g_%d-曝光时间150ms.bmp", inpath.c_str(), v);
+				sprintf_s(path, "%s/2号屏pentile_g_%d-曝光时间960ms-施耐德镜头光圈5.7.bmp", inpath.c_str(), v);
 				Mat tmp = imread(path);
 				if (tmp.data == NULL)
 				{
@@ -253,8 +254,9 @@ int main(int argc, char* argv[])
 		//		atof(argv[2]), atof(argv[3]), atof(argv[4]), atof(argv[5]), argv[6], select_rgb,
 		//		output_csv);*/
 		//}
-		compute_dumura_by_combile_single_rgb(relationship, data, centers_error, cross_points, pic,
-			outpath.c_str(), pentile_height, pentile_width / 2 * 3);
+		//compute_dumura_by_combile_single_rgb(relationship, data, centers_error, cross_points, pic,
+		//	outpath.c_str(), pentile_height, pentile_width / 2 * 3);
+		compute_dumura(relationship, pic, 1, outpath.c_str(), pentile_height, pentile_width / 2 * 3);
 	}
 	system("pause");
 	return 0;

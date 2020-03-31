@@ -10,3 +10,12 @@
 #include <set>
 
 enum RGB { BLUE, GREEN, RED };
+enum LED_state
+{
+	VALID, INVALID, CROSS, LINE_ONE, FIRST
+};
+
+struct LED_info {
+	cv::Point pixel, locate;
+	LED_state state;
+};
