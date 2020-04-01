@@ -31,3 +31,7 @@ void find_OLED_location_with_rgb_combination(
 	const std::vector<cv::Mat>& rgb, const cv::Mat& mask,
 	const char *output_selected_points_prefix, const int pentile_height,
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec);
+
+void tmp_valid_find_location(const std::vector<cv::Mat>& rgb, const cv::Mat& mask,
+	const char *output_selected_points_prefix, const int pentile_height,
+	std::vector<std::vector<std::vector<LED_info>>>& centers_vec);
