@@ -92,8 +92,8 @@ void generate_compensate_value(const char* img_file)
 	imwrite("./output/result_pentile_r.bmp", pentile_r);*/
 	int h = 2436, w = 752 / 2 * 3;
 	Mat img = imread(img_file)/*(Size(w, h), CV_8UC3)*/, pentile;
-	vector<int> value({ 12,16,19,22,25,29,32 }),
-		cross_value({ 32,32,32,32,32,32,16 });
+	vector<int> value({ 4,8,12,16,20,24,28,32 }), //({ 12,16,19,22,25,29,32 }),
+		cross_value({ 32,32,32,32,32,32,32,16 });
 	vector<int> need_x({ 60,1060 }), need_y({ 130, h - 130 });
 	for (int v = 0; v < value.size(); v++)
 	{
@@ -134,13 +134,113 @@ void generate_compensate_value(const char* img_file)
 	imwrite(path, pentile);*/
 }
 
+void convert(const char* img_file)
+{
+	vector<Vec3b> color;
+	{
+		for(int i=0;i<23;i++)
+			color.push_back(Vec3b(0, 0, 0));
+		/*for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(i * 255 / 4, 0, 0));
+		}
+		for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(0, i * 255 / 4, 0));
+		}
+		for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(0, 0, i * 255 / 4));
+		}
+		for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(0, i * 255 / 4, i * 255 / 4));
+		}
+		for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(i * 255 / 4, 0, i * 255 / 4));
+		}
+		for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(i * 255 / 4, i * 255 / 4, 0));
+		}
+		for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(i * 255 / 4, i * 255 / 4, i * 255 / 4));
+		}
+		for (int i = 1; i <= 4; i++)
+		{
+			color.push_back(Vec3b(i * 255 / 8, i * 255 / 4, i * 255 / 8));
+		}*/
+
+		color.push_back(Vec3b(255, 0, 0)); //23
+		color.push_back(Vec3b(255, 0, 0)); //24
+		color.push_back(Vec3b(0, 255, 0)); //25
+		color.push_back(Vec3b(0, 255, 0)); //26
+		color.push_back(Vec3b(0, 0, 255)); //27
+		color.push_back(Vec3b(0, 0, 255)); //28
+		color.push_back(Vec3b(0, 255, 255));  //29
+		color.push_back(Vec3b(255, 0, 255));  //30
+		color.push_back(Vec3b(255, 255, 0));  //31
+		color.push_back(Vec3b(255, 255, 255));//32
+	}
+	Mat img = imread(img_file), out(Size(img.cols, img.rows), CV_8UC3);
+	cout << img.cols << " " << img.rows << endl;
+	for (int y = 0; y < img.rows; y++)
+	{
+		for (int x = 0; x < img.cols; x++)
+		{
+			out.at<Vec3b>(y, x) = color[img.at<Vec3b>(y, x)[1]];
+		}
+	}
+	imwrite("./output/2.png", out);
+}
+
+void convert2(const char* img_file, const char* result_file)
+{
+	Vec3b b(255, 0, 0), g(0, 255, 0), r(0, 0, 255), ye(0, 255, 255),
+		black(0,0,0);
+	Mat img = imread(img_file),
+		result = imread(result_file),
+		out(Size(img.cols, img.rows), CV_8UC3, black);
+	cout << img.cols << " " << img.rows << endl;
+	for (int y = 0; y < img.rows; y++)
+	{
+		for (int x = 0; x < img.cols; x++)
+		{
+			// <24
+			if (result.at<Vec3b>(y, x) == b)
+				out.at<Vec3b>(y, x) = img.at<Vec3b>(y, x)[1] < 24 ? black : b;
+			// [24,28)
+			else if (result.at<Vec3b>(y, x) == g)
+				out.at<Vec3b>(y, x) = 
+				(img.at<Vec3b>(y, x)[1]>=24 && img.at<Vec3b>(y, x)[1] < 28)? black : 
+				(img.at<Vec3b>(y, x)[1] < 24 ? r : g);
+			// [24,28)
+			else if (result.at<Vec3b>(y, x) == r)
+				out.at<Vec3b>(y, x) = 
+				(img.at<Vec3b>(y, x)[1] < 32) ? black : ye;
+			/*else if (result.at<Vec3b>(y, x) == ye)
+				out.at<Vec3b>(y, x) =
+				(img.at<Vec3b>(y, x)[1] >= 30) ? black : Vec3b(255, 255, 255);*/
+		}
+	}
+	imwrite("./output/is_correct_region_in_limit1.png", out);
+}
+
 //#define VALIDATION
 int main(int argc, char* argv[])
 {
 	/*String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
 		outpath("E:/coding/gray_game/demura/output");*/
-	String inpath("./input2.2_20200330"),
-		outpath("./output");
+	//String inpath("E:\\document\\研二\\demura\\20200407_9块屏\\2号屏"), // ("./input2.2_20200404"),
+	//	outpath("E:\\document\\研二\\demura\\20200407_9块屏\\output2"), 
+	//	prefix("2号屏pentile_g_"),
+	//	postfix("-曝光时间750ms-增益3-施耐德镜头光圈5.7");
+	String inpath(argv[1]),
+		outpath(argv[2]),
+		prefix(argv[3]),
+		postfix(argv[4]);
 	_mkdir(outpath.c_str());
 	int pentile_width = 752, pentile_height = 2436;
 	//draw_pattern2("./output/test2", pentile_width, pentile_height);
@@ -149,18 +249,27 @@ int main(int argc, char* argv[])
 	/*generate_compensate_value("./output/result_rotate_90.bmp");
 	system("pause");
 	return 0;*/
+	/*convert2("./output/result_rotate_90.bmp", "./output/valid_result.png");
+	system("pause");
+	return 0;*/
 
 #ifndef VALIDATION
-	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH],
+	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH], range_file[7][MAX_PATH],
 		//output
 		mask_file[MAX_PATH], cross_file[MAX_PATH],
 		output_csv[MAX_PATH];
-	int ms = 960;
-	sprintf_s(b_file, "%s/2号屏pentile_g_16-曝光时间%dms-施耐德镜头光圈5.7.bmp", inpath.c_str(), ms);
-	sprintf_s(g_file, "%s/2号屏pentile_g_16-曝光时间%dms-施耐德镜头光圈5.7.bmp", inpath.c_str(), ms);
-	sprintf_s(r_file, "%s/2号屏pentile_g_16-曝光时间%dms-施耐德镜头光圈5.7.bmp", inpath.c_str(), ms);
-	//sprintf_s(cross_file, "%s/test2_pentile-35000us.bmp", inpath.c_str());
-	//sprintf_s(cross_file, "%s/2号屏pentile_g_32-曝光时间%dms.bmp", inpath.c_str());
+	int ms = 720;
+	sprintf_s(b_file, "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 16, postfix.c_str());
+	sprintf_s(g_file, "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 16, postfix.c_str());
+	sprintf_s(r_file, "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 16, postfix.c_str());
+	//vector<int> capture_pentile_g_value({ 4,8,11,16,23,32,64 });		  
+	//vector<int> capture_pentile_g_value({ 12,16,19,22,25,29,32 });	  
+	const vector<int> capture_pentile_g_value({ 4,8,12,16,20,24,28,32 });
+	for (int i = 0; i < capture_pentile_g_value.size(); i++)
+	{
+		sprintf_s(range_file[i], "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 
+			capture_pentile_g_value[i], postfix.c_str());
+	}
 	sprintf_s(mask_file, "%s/mask.png", inpath.c_str(), ms);
 	Mat mask = imread(mask_file, CV_8UC1);
 	const RGB b = BLUE, g = GREEN, r = RED;
@@ -173,9 +282,7 @@ int main(int argc, char* argv[])
 	{
 		cout << "file read error" << endl << b_file << ", or " << g_file << ", or " << r_file << endl;
 	}
-	//sprintf_s(b_file, "%s/b-%dms.png", inpath.c_str(), ms);
-	//imwrite(b_file, rgb[b]);
-	//if (mask.data == nullptr)
+	if (mask.data == nullptr)
 		preprocess(rgb, 0, mask_file, mask);
 	sprintf_s(output_csv, "%s/pentile_rgb_relationship.csv", outpath.c_str());
 
@@ -183,53 +290,42 @@ int main(int argc, char* argv[])
 	vector<vector<vector<LED_info>>> relationship(3);
 	{
 		RGB select_rgb = BLUE;
-		/*find_OLED_location_with_mask(
-			inputfile, "E:/coding/gray_game/demura/input2_pentile/mask_r.bmp",
-			"E:/coding/gray_game/demura/output/B16_selected_points.png",
-			"E:/coding/gray_game/demura/output/B16_after_3x3_set.png",
-			centers_vec, data, centers_error, select_rgb == GREEN);*/
-			/*find_OLED_location_with_mask(
-				"./input2/5.85_B16.bmp", "./input2/mask.png",
-				"./output/B16_selected_points.png", "./output/B16_after_3x3_set.png",
-				centers_vec, data, centers_error, select_rgb == GREEN);*/
-				/*find_OLED_location_with_mask(
-					inputfile, "E:/coding/gray_game/demura/input2_pentile_2/mask.png",
-					"E:/coding/gray_game/demura/output/selected_points.png",
-					"E:/coding/gray_game/demura/output/after_3x3_set.png",
-					centers_vec, data, centers_error, select_rgb == GREEN);*/
-
-		find_OLED_location_with_rgb_combination(rgb, mask,
-			outpath.c_str(), pentile_height, relationship);
+		if (find_OLED_location_with_rgb_combination(rgb, mask, 
+			outpath.c_str(), pentile_height, relationship))
+		{
+			cout << "something error!" << endl;
+			system("pause");
+			return 0;
+		}
 		cout << "--------------------" << endl;
 		// to test 4,8,11,16,23,32,64 value
 		vector<Mat> pic;
 		{
-			//vector<int> capture_pentile_g_value({ 4,8,11,16,23,32,64 });
-			vector<int> capture_pentile_g_value({ 12,16,19,22,25,29,32 });
-			char path[MAX_PATH];
-			for (auto v : capture_pentile_g_value)
+			for (int i=0;i< capture_pentile_g_value.size();i++)
 			{
-				sprintf_s(path, "%s/2号屏pentile_g_%d-曝光时间960ms-施耐德镜头光圈5.7.bmp", inpath.c_str(), v);
-				Mat tmp = imread(path);
+				Mat tmp = imread(range_file[i]);
 				if (tmp.data == NULL)
 				{
-					cout << path << "read error." << endl;
+					cout << range_file[i] << "read error." << endl;
+					system("pause");
+					return 0;
 				}
 				pic.push_back(tmp);
 				cvtColor(*pic.rbegin(), *pic.rbegin(), COLOR_BGR2GRAY);
 			}
 		}
-		//compute_dumura(relationship, pic, 1, outpath.c_str(), pentile_height, pentile_width / 2 * 3);
+		compute_dumura(relationship, capture_pentile_g_value,
+			pic, 3, outpath.c_str(), pentile_height, pentile_width / 2 * 3);
 	}
 #else
-	String valid_path("./input2.2_20200331");
+	String valid_path("./input2.2_20200404");
 	char valid_b_file[MAX_PATH], valid_g_file[MAX_PATH], valid_r_file[MAX_PATH],
 		//output
 		valid_mask_file[MAX_PATH];
 	int ms = 960, valid_ms = 1000;
-	sprintf_s(valid_b_file, "%s/2号屏result_pentile-曝光时间%dms-增益3-施耐德镜头光圈5.7.bmp", valid_path.c_str(), valid_ms);
-	sprintf_s(valid_g_file, "%s/2号屏result_pentile-曝光时间%dms-增益3-施耐德镜头光圈5.7.bmp", valid_path.c_str(), valid_ms);
-	sprintf_s(valid_r_file, "%s/2号屏result_pentile-曝光时间%dms-增益3-施耐德镜头光圈5.7.bmp", valid_path.c_str(), valid_ms);
+	sprintf_s(valid_b_file, "%s/2号屏result_pentile_limit1-曝光时间750ms-增益3-施耐德镜头光圈5.7.bmp", valid_path.c_str(), valid_ms);
+	sprintf_s(valid_g_file, "%s/2号屏result_pentile_limit1-曝光时间750ms-增益3-施耐德镜头光圈5.7.bmp", valid_path.c_str(), valid_ms);
+	sprintf_s(valid_r_file, "%s/2号屏result_pentile_limit1-曝光时间750ms-增益3-施耐德镜头光圈5.7.bmp", valid_path.c_str(), valid_ms);
 	sprintf_s(valid_mask_file, "%s/mask.png", valid_path.c_str(), valid_ms);
 	Mat valid_mask = imread(valid_mask_file, CV_8UC1);
 	const RGB b = BLUE, g = GREEN, r = RED;
@@ -250,9 +346,57 @@ int main(int argc, char* argv[])
 	{
 		tmp_valid_find_location(rgb, valid_mask,
 			outpath.c_str(), pentile_height, relationship);
+		//int  cnt1 =0, cnt2 = 0, cnt3 = 0;
+		//double sum1 = 0, sum2 = 0, sum3 = 0;
+		//vector<int> rect1({649, 2880, 512, 3429}),
+		//	rect3({ 3843, 4440, 308, 247 }),
+		//	rect2({ 10371, 6284, 546, 546 });
+		//cout << rgb[1].type() << CV_8UC3;
+		//for(auto pp : relationship[1])
+		//	for (auto p : pp)
+		//	{
+		//		if(p.state==VALID && rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1]!= 255)
+		//			/*if (p.pixel.x >= 0 && p.pixel.x <= 1115)
+		//			{
+		//				sum1 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
+		//				cnt1++;
+		//			}
+		//			else if (p.pixel.x > 1115 && p.pixel.x <= 10211)
+		//			{
+		//				sum2 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
+		//				cnt2++;
+		//			}
+		//			else if (p.pixel.x > 10211 && p.pixel.x <= 11229)
+		//			{
+		//				sum3 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
+		//				cnt3++;
+		//			}*/
+		//			if (p.pixel.x >= rect1[0] && p.pixel.x <= rect1[0]+ rect1[2]
+		//				&& p.pixel.y >= rect1[1] && p.pixel.y <= rect1[1] + rect1[3])
+		//			{
+		//				sum1 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
+		//				cnt1++;
+		//			}
+		//			else if (p.pixel.x >= rect2[0] && p.pixel.x <= rect2[0] + rect2[2]
+		//				&& p.pixel.y >= rect2[1] && p.pixel.y <= rect2[1] + rect2[3])
+		//			{
+		//				sum2 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
+		//				cnt2++;
+		//			}
+		//			else if (p.pixel.x >= rect3[0] && p.pixel.x <= rect3[0] + rect3[2]
+		//				&& p.pixel.y >= rect3[1] && p.pixel.y <= rect3[1] + rect3[3])
+		//			{
+		//				sum3 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
+		//				cnt3++;
+		//			}
+		//	}
+		//cout << cnt1 << " " << cnt2 << " " << cnt3 << endl;
+		//cout << sum1/ cnt1 << " " << sum2/ cnt2 << " " << sum3/ cnt3 << endl;
 		cout << "--------------------" << endl;
+		compute_dumura_single_pic(relationship, gg, 
+			outpath.c_str(), pentile_height, pentile_width / 2 * 3);
 	}
 #endif
-	system("pause");
+	//system("pause");
 	return 0;
 }

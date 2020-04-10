@@ -17,6 +17,12 @@
 //	std::vector<cv::Mat>& pic,
 //	const char* output_prefix, int width, int height);
 
-void compute_dumura(std::vector<std::vector<std::vector<LED_info>>>& centers_vec,
+void compute_dumura(const std::vector<std::vector<std::vector<LED_info>>>& centers_vec,
+	const std::vector<int>& capture_pentile_g_value,
 	const std::vector<cv::Mat>& pic, const int primary_pic,
 	const char* output_prefix, int width, int height);
+
+
+void compute_dumura_single_pic(std::vector<std::vector<std::vector<LED_info>>>& relationship,
+	const std::vector<int>& capture_pentile_g_value,
+	const cv::Mat& img, const char* output_prefix, int width, int height);

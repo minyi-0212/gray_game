@@ -27,11 +27,11 @@
 //	std::vector<std::vector<cv::Point>>& centers_error,
 //	std::vector<std::vector<std::pair<cv::Point, cv::Point>>> cross_points);
 
-void find_OLED_location_with_rgb_combination(
+int find_OLED_location_with_rgb_combination(
 	const std::vector<cv::Mat>& rgb, const cv::Mat& mask,
-	const char *output_selected_points_prefix, const int pentile_height,
+	const char *output_prefix, const int pentile_height,
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec);
 
-void tmp_valid_find_location(const std::vector<cv::Mat>& rgb, const cv::Mat& mask,
-	const char *output_selected_points_prefix, const int pentile_height,
+int tmp_valid_find_location(const std::vector<cv::Mat>& rgb, const cv::Mat& mask,
+	const char *output_prefix, const int pentile_height,
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec);

@@ -1,6 +1,7 @@
 #include "location.h"
 #include <fstream>
 #include <stack>
+#include <algorithm>
 
 using namespace std;
 using namespace cv;
@@ -17,7 +18,7 @@ void update(const Mat& m, Point& p)
 		for (int j = 0; j < t_update_large.size(); j++)
 		{
 			if (m.at<byte>(p.y, p.x)
-				< m.at<byte>(tmp.y + t_update_large[j], tmp.x + t_update_small[i]))
+				<= m.at<byte>(tmp.y + t_update_large[j], tmp.x + t_update_small[i]))
 			{
 
 				p.y = tmp.y + t_update_large[j];
@@ -85,7 +86,7 @@ void get_mask_corner_points(const Mat& mask, vector<Point>& corners, int low_lim
 }
 
 void location_one_column(const Mat& rgb, const Mat& mask,
-	vector<LED_info>& relation, int region_size, int interval, bool is_green,
+	vector<LED_info>& relation, int region_size, double interval, bool is_green,
 	const int s = 0, const int e = 2)
 {
 	Mat img_copy = rgb.clone(), image = rgb.clone();
@@ -195,15 +196,30 @@ bool is_error(const Mat& image, const Point& p)
 		|| image.at<byte>(p.y, p.x) < image.at<byte>(p.y + 1, p.x + 1);
 }
 
+void vote(vector<pair<Point, int>>& v, const int x, const int y)
+{
+	int i = 0;
+	for (; i < v.size(); i++)
+	{
+		if (x == v[i].first.x && y == v[i].first.y)
+		{
+			v[i].second++;
+			break;
+		}
+	}
+	if (i == v.size())
+		v.push_back({Point(x,y), 1});
+}
+
 void find_point_in_region(const Mat& image, const Mat& mask,
 	const double interval_x, const double interval_y, const double locate_interval,
 	const int index, vector<Point>& locate, vector<Point>& start_p,
 	vector<vector<LED_info>>& centers_vec, set<pair<int, int>>& points_set,
-	const int lor = 1, bool is_green = true) // lor 1:right,-1:left
+	const int low_limit, const int lor = 1, bool is_green = true) // lor 1:right,-1:left
 {
 	//cout << lor * interval_x;
 	Point cur, last, start;
-	int s = 0;
+	/*int s = 0;
 	while (s < OLED_pick_region && start_p[s].x == -1)
 	{
 		s++;
@@ -211,9 +227,11 @@ void find_point_in_region(const Mat& image, const Mat& mask,
 	if (s == OLED_pick_region)
 		return;
 	start = start_p[s];
-	start.y -= s * interval_y;
+	start.y -= s * interval_y;*/
+	start = start_p[0];
+	vector<pair<Point, int>> vote_result;
 	//cout << start << " ";
-	for (int y = 0; y < OLED_pick_region && index+y< centers_vec.size(); y++)
+	for (int y = 0; y < OLED_pick_region && index + y < centers_vec.size(); y++)
 	{
 		//cout <<" --"<< y << " ";
 		cur.y = start.y + y * interval_y;
@@ -231,55 +249,80 @@ void find_point_in_region(const Mat& image, const Mat& mask,
 			update(image, cur);
 			update(image, cur);
 			//cout << cur << " ";
-			if (mask.at<byte>(cur.y, cur.x) == 0 
-				|| points_set.count({ cur.x, cur.y})
-				|| is_error(image, cur)) {
+			if (mask.at<byte>(cur.y, cur.x) == 0
+				|| points_set.count({ cur.x, cur.y })
+				|| is_error(image, cur)
+				|| image.at<byte>(cur.y, cur.x) < low_limit) {
 				cur = last;
 				//cout << last << "->" << cur << " is invalid" << endl;
 				centers_vec[index + y].push_back({ cur, locate[y], INVALID });
 			}
 			else
 			{
-				if (x == 0 && y == 0) start = cur;
-				centers_vec[index + y].push_back({ cur, locate[y], (x == 0) ? FIRST : VALID });
+				if (x == 0 && y == 0) 
+					start = cur;
+				//if (cur.x == 9913 && cur.y == 3123)
+					//cout << index << endl;
+				centers_vec[index + y].push_back({ cur, locate[y], /*(x == 0) ? FIRST :*/ VALID });
+				vote(vote_result, cur.x + lor * (OLED_pick_region - x)*interval_x, cur.y - y*interval_y);
 			}
 			points_set.insert({ cur.x, cur.y });
 			locate[y].x += lor * locate_interval;
 		}
-		int p = centers_vec[index + y].size()-1;
-		start_p[y] = cur;
-		start_p[y].x += lor * interval_x;
-		int x = 0;
-		for (; x < OLED_pick_region; x++)
+		//int p = centers_vec[index + y].size()-1;
+		//start_p[y] = cur;
+		//start_p[y].x += lor * interval_x;
+		//int x = 0;
+		//for (; x < OLED_pick_region; x++)
+		//{
+		//	if (centers_vec[index + y][p - x].state == VALID)
+		//	{
+		//		start_p[y] = centers_vec[index + y][p - x].pixel;
+		//		start_p[y].x += lor * interval_x * (x + 1);
+		//		//cout << centers_vec[index + y][p - x].pixel << "," << start_p[y] << "--";
+		//		break;
+		//	}
+		//}
+		//if (x == OLED_pick_region)
+		//{
+		//	start_p[y] = { -1, -1 };
+		//	if (y == 0) 
+		//	{
+		//		int ss = 0;
+		//		while (ss < OLED_pick_region &&start_p[ss].x == -1)
+		//		{
+		//			ss++;
+		//		}
+		//		if (ss == OLED_pick_region)
+		//			return;
+		//		start = start_p[ss];
+		//		start.y -= ss * interval_y;
+		//	}
+		//}
+	}
+	
+	if (vote_result.size())
+	{
+		sort(vote_result.begin(), vote_result.end(), [](const pair<Point, int>& a, const pair<Point, int>& b) {
+			return a.second > b.second;
+		});
+		/*for (auto v : vote_result)
+			cout << v.first << ":" << v.second << "  ";
+		cout << endl;*/
+		start_p[0] = vote_result[0].first;
+		for (int y = 1; y < OLED_pick_region && index + y < centers_vec.size(); y++)
 		{
-			if (centers_vec[index + y][p - x].state == VALID)
-			{
-				start_p[y] = centers_vec[index + y][p - x].pixel;
-				start_p[y].x += lor * interval_x * (x + 1);
-				//cout << centers_vec[index + y][p - x].pixel << "," << start_p[y] << "--";
-				break;
-			}
+			start_p[y] = start_p[0];
+			start_p[y].y += y * interval_y;
 		}
-		if (x == OLED_pick_region)
+	}
+	else
+	{
+		for (int y = 0; y < OLED_pick_region; y++)
 		{
 			start_p[y] = { -1, -1 };
-			if (y == 0) 
-			{
-				int ss = 0;
-				while (ss < OLED_pick_region &&start_p[ss].x == -1)
-				{
-					ss++;
-				}
-				if (ss == OLED_pick_region)
-					return;
-				start = start_p[ss];
-				start.y -= ss * interval_y;
-			}
 		}
-		//cout << endl;
 	}
-	//cout << endl;
-	//cout << endl;
 }
 
 void location_all_points(const Mat& rgb, const Mat& mask,
@@ -289,7 +332,7 @@ void location_all_points(const Mat& rgb, const Mat& mask,
 	vector<vector<LED_info>>& centers_vec,
 	RGB select_rgb)
 {
-	cout << "[find all points] in process " << cross_points.size() << "..." << endl;
+	cout << "[find all points] in process total line " << cross_points.size() << "..." << endl;
 	Performance p;
 	Mat img_copy = rgb.clone(), image = rgb.clone();
 	cvtColor(image, image, CV_BGR2GRAY);
@@ -299,12 +342,12 @@ void location_all_points(const Mat& rgb, const Mat& mask,
 		Point  cur, last;
 		set<pair<int, int>> points_set;
 		vector<Point> left(OLED_pick_region), locate(OLED_pick_region);
-		const double low_limit = 3, interval_x = select_rgb == GREEN ? 4 : 9,
-			interval_y = 4;
+		const double low_limit = 1, interval_x = select_rgb == GREEN ? 4.5 : 9,
+			interval_y = 4.5;
 		centers_vec.resize(cross_points.size());
 		bool flag;
 		for (int hi = 0; hi < centers_vec.size(); hi += OLED_pick_region)
-		//int hi = 228;
+		//int hi = 252;
 		{
 			//cout <<"hi: "<< hi << endl;
 			// right
@@ -327,7 +370,7 @@ void location_all_points(const Mat& rgb, const Mat& mask,
 				if (!flag)
 					break;
 				find_point_in_region(image, mask, interval_x, interval_y, locate_interval[select_rgb],
-					hi, locate, left, centers_vec, points_set, 1, select_rgb==GREEN);
+					hi, locate, left, centers_vec, points_set, low_limit, 1, select_rgb==GREEN);
 			}
 			//cout << "left" << endl;
 			// left
@@ -350,16 +393,16 @@ void location_all_points(const Mat& rgb, const Mat& mask,
 				if (!flag)
 					break;
 				find_point_in_region(image, mask, interval_x, interval_y, locate_interval[select_rgb],
-					hi, locate, left, centers_vec, points_set, -1);
+					hi, locate, left, centers_vec, points_set, low_limit, -1, select_rgb == GREEN);
 			}
 		}
 	}
 	pp.endAndPrint();
 
 	{
-		cout << "head size: " << cross_points.size() - 9 << endl;
+		cout << "head size: " << cross_points.size() << endl;
 		int sum = 0;
-		cout << centers_vec.size() << "*" << centers_vec[510].size() << endl;
+		cout << "rough total size: " << centers_vec.size() << "*" << centers_vec[510].size() << endl;
 		for (auto p : centers_vec)
 		{
 			sum += p.size();
@@ -416,9 +459,92 @@ int get_pixel(const Mat& img, int y, int x)
 	return img.at<byte>(tmp.y, tmp.x);
 }
 
-void find_OLED_location_with_rgb_combination(
+void find_cross(const Mat& img, const Mat& mask, 
+	const char *output_prefix, const int pentile_width,
+	const RGB select_rgb, vector<LED_info>& cross_points)
+{
+	const double upscale = 0.7, low_scale = 0.8;
+	const int cross_low_limit = 150, select_range = 500;
+	const double select_interval = 9;
+	Mat cross = img.clone(), tmp = cross.clone();
+	cvtColor(cross, cross, COLOR_BGR2GRAY);
+	// find corner 0,1; 2,3 / 0,1,2; 3,4,5; 6,7,8 
+	vector<Point> corners;
+	get_mask_corner_points(mask, corners, 0);
+	for (auto p : corners)
+	{
+		circle(tmp, p, 2, Scalar(0, 255, 0), 2);
+	}
+	// find cross
+	vector<Point> cross_points_vec(corners.size(), Point(-1, -1));
+	{
+		int x0 = corners[0].x, y0 = corners[0].y, cross_value;
+		Point p_tmp;
+		for (int ci = 0; ci < corners.size(); ci++)
+			for (int y = corners[ci].y - select_range; y <= corners[ci].y + select_range; y++)
+			{
+				for (int x = corners[ci].x - select_range; x <= corners[ci].x + select_range; x++)
+				{
+					cross_value = cross.at<byte>(y, x);
+					p_tmp.x = x;
+					p_tmp.y = y;
+					if (!is_error(cross, p_tmp) 
+						&& cross.at<byte>(y, x) > cross_low_limit
+						&& ((get_pixel(cross, y + select_interval, x) > cross_value* upscale
+							&& get_pixel(cross, y, x + select_interval) > cross_value* upscale
+							&& get_pixel(cross, y - select_interval, x) > cross_value* upscale
+							&& get_pixel(cross, y, x - select_interval) > cross_value* upscale)
+							|| (get_pixel(cross, y + 2 * select_interval, x) > cross_value* upscale
+								&& get_pixel(cross, y, x + 2 * select_interval) > cross_value* upscale
+								&& get_pixel(cross, y - 2 * select_interval, x) > cross_value* upscale
+								&& get_pixel(cross, y, x - 2 * select_interval) > cross_value* upscale))
+						&& (get_pixel(cross, y + select_interval, x + select_interval) < cross_value*low_scale
+							&& get_pixel(cross, y + select_interval, x - select_interval) < cross_value*low_scale
+							&& get_pixel(cross, y - select_interval, x + select_interval) < cross_value*low_scale
+							&& get_pixel(cross, y - select_interval, x - select_interval) < cross_value*low_scale))
+					{
+						x += 48;
+						update(cross, p_tmp);
+						//cout <<ci << " " << p_tmp << endl;
+						cross_points_vec[ci] = cross_points_vec[ci].x == -1 ? p_tmp : 
+							(cross.at<byte>(p_tmp.y, p_tmp.x) > 
+								cross.at<byte>(cross_points_vec[ci].y, cross_points_vec[ci].x) ?
+								p_tmp: cross_points_vec[ci]);
+					}
+				}
+			}
+
+		// the pentile x&y, this can read from cross_point_xy.txt
+		///vector<int> need_y{ 130, 1216, 2306 }, need_x({ 30,60,90, 530,560,590, 1030,1060,1090 });
+		vector<Point> cross_locate_xy;
+		vector<int> need_y{ 130, 2306 }, need_x({ 60 ,1060 });
+		for (int j = 0; j < need_x.size(); j++)
+		{
+			for (int i = need_y.size() - 1; i >= 0; i--)
+			{
+				cross_locate_xy.push_back(Point(pentile_width - need_y[i] - (select_rgb == 0 ? 2 : 1), need_x[j]));
+			}
+		}
+
+		int index = -1;
+		Vec3b color_tmp(0, 0, 0);
+		color_tmp[select_rgb] = 255;
+		for (auto cp : cross_points_vec)
+		{
+			cross_points.push_back({ cp, cross_locate_xy[++index], CROSS });
+			cout << cp.y << "," << cp.x << "->" << cross_locate_xy[index] << endl;
+			if(cp.x != -1)
+				tmp.at<Vec3b>(cp.y, cp.x) = color_tmp;
+		}
+		char out_cross[MAX_PATH];
+		sprintf(out_cross, "%s/find_cross.png", output_prefix);
+		imwrite(out_cross, tmp);
+	}
+}
+
+int find_OLED_location_with_rgb_combination(
 	const std::vector<cv::Mat>& rgb_image, const cv::Mat& mask,
-	const char *output_selected_points_prefix, const int pentile_width,
+	const char *output_prefix, const int pentile_width,
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec)
 {
 	vector<vector<LED_info>> cross_points(3);
@@ -427,174 +553,39 @@ void find_OLED_location_with_rgb_combination(
 	{
 		// find cross
 		{
-			const int cross_low_limit = 50, select_range = 500, select_interval = 9;
-			Mat cross = rgb_image[select_rgb].clone(), tmp = cross.clone();
-			cvtColor(cross, cross, COLOR_BGR2GRAY);
-			// find corner 0,1; 2,3 / 0,1,2; 3,4,5; 6,7,8 
-			vector<Point> corners;
-			get_mask_corner_points(mask, corners, 0);
-			for (auto p : corners)
-			{
-				circle(tmp, p, 2, Scalar(0, 255, 0), 2);
-			}
-			// find cross
-			set<pair<int, int>> cross_points_set;
-			// this can read from cross_point_xy.txt
-			///vector<int> need_y{ 130, 1216, 2306 }, need_x({ 30,60,90, 530,560,590, 1030,1060,1090 });
-			vector<int> need_y{ 130, 2306 }, need_x({ 60 ,1060 });
-			vector<Point> cross_locate_xy;
-			/*in the capture file
-			  g 0		1		2
-			  b 3		4		5
-			  r 6		7		8
-
-			  g 9		10		11
-			  b 12		13		14
-			  r 15		16		17
-
-			  g 18		19		20
-			  b 21		22		23
-			  r 24		25		26
-			*/
-			for (int j = 0; j < need_x.size(); j++)
-			{
-				for (int i = need_y.size() - 1; i >= 0; i--)
-				{
-					//cross_locate_xy.push_back(Point(pentile_width - need_y[i] - (j % 3 == 0 ? 2 : 1), need_x[j]));
-					cross_locate_xy.push_back(Point(pentile_width - need_y[i] - (select_rgb == 0 ? 2 : 1), need_x[j]));
-				}
-			}
-			{
-				//cout << "corners : " << corners.size() << endl << corners[0] << endl;
-				int x0 = corners[0].x, y0 = corners[0].y, cross_value;
-				const double upscale = 0.6, low_scale = 0.8;
-				Point p_tmp;
-				for (int ci = 0; ci < corners.size(); ci++)
-					for (int y = corners[ci].y - select_range; y <= corners[ci].y + select_range; y++)
-					{
-						for (int x = corners[ci].x - select_range; x <= corners[ci].x + select_range; x++)
-						//int y = 2258, x = 10682;
-						//int y = 6670, x = 10659;
-						{
-							cross_value = cross.at<byte>(y, x) * upscale;
-							p_tmp.x = x;
-							p_tmp.y = y;
-							if (!is_error(cross, p_tmp) && cross.at<byte>(y, x) > cross_low_limit
-								&& ((get_pixel(cross, y + select_interval, x) > cross_value
-									&& get_pixel(cross, y, x + select_interval) > cross_value
-									&& get_pixel(cross, y - select_interval, x) > cross_value
-									&& get_pixel(cross, y, x - select_interval) > cross_value)
-									|| (get_pixel(cross, y + 2 * select_interval, x) > cross_value
-										&& get_pixel(cross, y, x + 2 * select_interval) > cross_value
-										&& get_pixel(cross, y - 2 * select_interval, x) > cross_value
-										&& get_pixel(cross, y, x - 2 * select_interval) > cross_value))
-								&& (get_pixel(cross, y + select_interval, x + select_interval) < cross_value*low_scale
-									&& get_pixel(cross, y + select_interval, x - select_interval) < cross_value*low_scale
-									&& get_pixel(cross, y - select_interval, x + select_interval) < cross_value*low_scale
-									&& get_pixel(cross, y - select_interval, x - select_interval) < cross_value*low_scale))
-							
-							/*cross_value = cross.at<byte>(y, x) * upscale; 
-							p_tmp.x = x;
-							p_tmp.y = y;
-							if (y == 6670 && x == 10659)
-							{
-								cout <<"-------------------"<< !is_error(cross, p_tmp) << ","
-									<< (int)cross.at<byte>(y, x) << endl
-									<< y + select_interval << "," << x << endl
-									<< get_pixel(cross, y + select_interval, x) << ","
-									<< get_pixel(cross, y, x + select_interval) << ","
-									<< get_pixel(cross, y - select_interval, x) << ","
-									<< get_pixel(cross, y, x - select_interval) << endl
-									<< get_pixel(cross, y + 2 * select_interval, x) << ","
-									<< get_pixel(cross, y, x + 2 * select_interval) << ","
-									<< get_pixel(cross, y - 2 * select_interval, x) << ","
-									<< get_pixel(cross, y, x - 2 * select_interval) << endl
-									<< get_pixel(cross, y + select_interval, x + select_interval) << ","
-									<< get_pixel(cross, y + select_interval, x - select_interval) << ","
-									<< get_pixel(cross, y - select_interval, x + select_interval) << ","
-									<< get_pixel(cross, y - select_interval, x - select_interval) << endl;
-							}*/
-							/*if (!is_error(cross, p_tmp)
-								&& cross.at<byte>(y, x) < cross_low_limit
-								&& ((get_pixel(cross, y + select_interval, x) < cross_value
-									&& get_pixel(cross, y, x + select_interval) < cross_value
-									&& get_pixel(cross, y - select_interval, x) < cross_value
-									&& get_pixel(cross, y, x - select_interval) < cross_value)
-									|| (get_pixel(cross, y + 2 * select_interval, x) < cross_value
-										&& get_pixel(cross, y, x + 2 * select_interval) < cross_value
-										&& get_pixel(cross, y - 2 * select_interval, x) < cross_value
-										&& get_pixel(cross, y, x - 2 * select_interval) < cross_value))
-								&& (get_pixel(cross, y + select_interval, x + select_interval) > cross_value*upscale
-									&& get_pixel(cross, y + select_interval, x - select_interval) > cross_value*upscale
-									&& get_pixel(cross, y - select_interval, x + select_interval) > cross_value*upscale
-									&& get_pixel(cross, y - select_interval, x - select_interval) > cross_value*upscale))*/
-							{
-								//cout << (int)cross.at<Vec3b>(y, x)[0] << endl;
-								//circle(tmp, Point(x0,y0), 2, Scalar(0, 255, 0), 2);
-								//p_tmp.x = x;
-								//p_tmp.y = y;
-								//tmp.at<Vec3b>(p_tmp.y, p_tmp.x) = Vec3b(0, 255, 255);
-								// update(p_tmp)
-								/*cout << "insert" << p_tmp << endl;
-								for (int i = -2; i <= 2; i++)
-								{
-									for (int j = -2; j <= 2; j++)
-									{
-										if (cross.at<byte>(p_tmp.y, p_tmp.x)
-											< cross.at<byte>(y + i, x + j))
-										{
-											p_tmp.y = y + i;
-											p_tmp.x = x + j;
-										}
-									}
-								}*/
-								//tmp.at<Vec3b>(p_tmp.y, p_tmp.x) = Vec3b(0, 0, 255);
-								x += 48;
-								//cross_points[ci].push_back(p_tmp);
-								cross_points_set.insert({ p_tmp.y, p_tmp.x });
-							}
-						}
-					}
-				/*cross_points_set.insert({ 2258, 10680 });
-				cross_points_set.insert({ 2258, 10682 });
-				cross_points_set.insert({ 6670, 10650 });
-				cross_points_set.insert({ 6670, 10659 });*/
-				cout << "cross_points_set size: " << cross_points_set.size() << endl;
-				int index = -1;
-				for (auto cp : cross_points_set)
-				{
-					Vec3b color_tmp(0, 0, 0);
-					//cross_points[select_rgb].push_back({ Point(cp.second, cp.first),cross_locate_xy[++index] });
-					cross_points[select_rgb].push_back({ Point(cp.second, cp.first),cross_locate_xy[++index], CROSS});
-					color_tmp[select_rgb] = 255;
-					tmp.at<Vec3b>(cp.first, cp.second) = color_tmp;
-					cout << cp.first << "," << cp.second << "->" << cross_locate_xy[index] << endl;
-				}
-				char out_cross[MAX_PATH];
-				sprintf(out_cross, "%s/find_cross.png", output_selected_points_prefix);
-				imwrite(out_cross, tmp);
-			}
-
+			find_cross(rgb_image[select_rgb], mask, output_prefix, pentile_width,
+				(RGB)select_rgb, cross_points[select_rgb]);
 			// find one point in each line(represent each line)
-			if (cross_points[select_rgb].size() < 4)
-				return ;
-			location_one_column(rgb_image[select_rgb], mask, cross_points[select_rgb], 
-				cross_points[select_rgb].size(), 9, select_rgb == GREEN, 0, 2);
+			if (cross_points[select_rgb][0].pixel.x != -1 
+				&& cross_points[select_rgb][2].pixel.x != -1)
+				location_one_column(rgb_image[select_rgb], mask, cross_points[select_rgb],
+					cross_points[select_rgb].size(), 9, select_rgb == GREEN, 0, 2);
+			else if (cross_points[select_rgb][1].pixel.x != -1
+				&& cross_points[select_rgb][3].pixel.x != -1)
+				location_one_column(rgb_image[select_rgb], mask, cross_points[select_rgb],
+					cross_points[select_rgb].size(), 9, select_rgb == GREEN, 1, 3);
+			else
+			{
+				cout << "not find cross." << endl;
+				return -1;
+			}
 		}
 
-		cout << (select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g")) << endl;
+		cout << "locate " << (select_rgb == RED ? "red" : (select_rgb == BLUE ? "blue" : "green")) << endl;
 		char outfile_selected_point_name[MAX_PATH], outfile_set_3x3_region_name[MAX_PATH];
 		sprintf(outfile_selected_point_name, "%s/select_points_%s.png",
-			output_selected_points_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
+			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		sprintf(outfile_set_3x3_region_name, "%s/region_3x3_%s.png",
-			output_selected_points_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
+			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		cout << "[output] :" << endl << outfile_selected_point_name << endl
 			<< outfile_set_3x3_region_name << endl;
 		location_all_points(rgb_image[select_rgb], mask,
 			outfile_selected_point_name, outfile_set_3x3_region_name,
 			cross_points[select_rgb], centers_vec[select_rgb], (RGB)select_rgb);
 
-		ofstream out("./output/origin.csv");
+		char csv_name[MAX_PATH];
+		sprintf(csv_name, "%s/origin.csv", output_prefix);
+		ofstream out(csv_name);
 		for (auto line : centers_vec[select_rgb])
 		{
 			for (auto p : line)
@@ -606,36 +597,47 @@ void find_OLED_location_with_rgb_combination(
 		}
 		out.close();
 	}
+	return 0;
 }
 
-void tmp_valid_find_location(
-	const std::vector<cv::Mat>& rgb_image, const cv::Mat& mask,
-	const char *output_selected_points_prefix, const int pentile_width,
+int tmp_valid_find_location(const std::vector<cv::Mat>& rgb_image, const cv::Mat& mask,
+	const char *output_prefix, const int pentile_width,
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec)
 {
 	vector<vector<LED_info>> cross_points(3);
 	//for (int select_rgb = 0; select_rgb < rgb_image.size(); select_rgb++)
 	int select_rgb = 1;
 	{
-		cross_points[select_rgb].push_back({ Point(10682, 2258),Point(2305, 60), CROSS });
-		cross_points[select_rgb].push_back({ Point(-1, -1),Point(2305, 60), CROSS });
-		cross_points[select_rgb].push_back({ Point(10659, 6670),Point(2305, 1060), CROSS });
-		cross_points[select_rgb].push_back({ Point(-1, -1),Point(2305, 1060), CROSS });
-		location_one_column(rgb_image[select_rgb], mask, cross_points[select_rgb],
-			cross_points[select_rgb].size(), 9, select_rgb == GREEN, 0, 2);
+		// find cross
+		find_cross(rgb_image[select_rgb], mask, output_prefix, pentile_width,
+			(RGB)select_rgb, cross_points[select_rgb]);
+		// find one point in each line(represent each line)
+		if (cross_points[select_rgb][0].pixel.x != -1
+			&& cross_points[select_rgb][2].pixel.x != -1)
+			location_one_column(rgb_image[select_rgb], mask, cross_points[select_rgb],
+				cross_points[select_rgb].size(), 9, select_rgb == GREEN, 0, 2);
+		else if (cross_points[select_rgb][1].pixel.x != -1
+			&& cross_points[select_rgb][3].pixel.x != -1)
+			location_one_column(rgb_image[select_rgb], mask, cross_points[select_rgb],
+				cross_points[select_rgb].size(), 9, select_rgb == GREEN, 1, 3);
+		else
+		{
+			cout << "not find cross." << endl;
+			return -1;
+		}
 
-		cout << (select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g")) << endl;
+		cout << "locate " << (select_rgb == RED ? "red" : (select_rgb == BLUE ? "blue" : "green")) << endl;
 		char outfile_selected_point_name[MAX_PATH], outfile_set_3x3_region_name[MAX_PATH];
 		sprintf(outfile_selected_point_name, "%s/select_points_%s.png",
-			output_selected_points_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
+			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		sprintf(outfile_set_3x3_region_name, "%s/region_3x3_%s.png",
-			output_selected_points_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
+			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		cout << "[output] :" << endl << outfile_selected_point_name << endl
 			<< outfile_set_3x3_region_name << endl;
 		location_all_points(rgb_image[select_rgb], mask,
 			outfile_selected_point_name, outfile_set_3x3_region_name,
 			cross_points[select_rgb], centers_vec[select_rgb], (RGB)select_rgb);
-		ofstream out("./output/result.csv");
+		ofstream out("./output/valid_result.csv");
 		for (auto line : centers_vec[select_rgb])
 		{
 			for (auto p : line)
