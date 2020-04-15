@@ -121,6 +121,7 @@
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="gaussian_filter.cpp" />
+    <ClCompile Include="gmatch.cpp" />
     <ClCompile Include="location.cpp" />
     <ClCompile Include="main.cpp" />
     <ClCompile Include="pentile.cpp" />
@@ -129,6 +130,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="gaussian_filter.h" />
+    <ClInclude Include="gmatch.h" />
     <ClInclude Include="location.h" />
     <ClInclude Include="main.h" />
     <ClInclude Include="pentile.h" />
