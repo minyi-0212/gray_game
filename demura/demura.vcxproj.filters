@@ -36,6 +36,12 @@
     <ClCompile Include="gmatch.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="diff.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="exr.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="Performance.h">
@@ -57,6 +63,12 @@
       <Filter>Header Files</Filter>
     </ClInclude>
     <ClInclude Include="gmatch.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="diff.h">
+      <Filter>Header Files</Filter>
+    </ClInclude>
+    <ClInclude Include="exr.h">
       <Filter>Header Files</Filter>
     </ClInclude>
   </ItemGroup>

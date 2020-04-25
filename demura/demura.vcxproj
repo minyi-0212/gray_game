@@ -70,8 +70,8 @@
   </ImportGroup>
   <PropertyGroup Label="UserMacros" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|x64'">
-    <IncludePath>E:\externs\opencv\include;E:\externs\Eigen;D:\bin\PCL\PCL 1.9.1\3rdParty\FLANN\include;$(IncludePath)</IncludePath>
-    <LibraryPath>E:\externs\opencv\libs;D:\bin\PCL\PCL 1.9.1\3rdParty\FLANN\lib;$(LibraryPath)</LibraryPath>
+    <IncludePath>E:\externs\opencv\include;E:\externs\Eigen;D:\bin\PCL\PCL 1.9.1\3rdParty\FLANN\include;E:\externs\openexr\include;$(IncludePath)</IncludePath>
+    <LibraryPath>E:\externs\openexr\lib;E:\externs\opencv\libs;D:\bin\PCL\PCL 1.9.1\3rdParty\FLANN\lib;$(LibraryPath)</LibraryPath>
   </PropertyGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
     <ClCompile>
@@ -116,10 +116,12 @@
     <Link>
       <EnableCOMDATFolding>true</EnableCOMDATFolding>
       <OptimizeReferences>true</OptimizeReferences>
-      <AdditionalDependencies>flann.lib;opencv_x64_world310.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+      <AdditionalDependencies>Half.lib;Iex-2_2.lib;IexMath-2_2.lib;Imath-2_2.lib;IlmThread-2_2.lib;IlmImf-2_2.lib;IlmImfUtil-2_2.lib;zlibwapi.lib;zlib.lib;flann.lib;opencv_x64_world310.lib;kernel32.lib;user32.lib;gdi32.lib;winspool.lib;comdlg32.lib;advapi32.lib;shell32.lib;ole32.lib;oleaut32.lib;uuid.lib;odbc32.lib;odbccp32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
+    <ClCompile Include="diff.cpp" />
+    <ClCompile Include="exr.cpp" />
     <ClCompile Include="gaussian_filter.cpp" />
     <ClCompile Include="gmatch.cpp" />
     <ClCompile Include="location.cpp" />
@@ -129,6 +131,8 @@
     <ClCompile Include="preprocess.cpp" />
   </ItemGroup>
   <ItemGroup>
+    <ClInclude Include="diff.h" />
+    <ClInclude Include="exr.h" />
     <ClInclude Include="gaussian_filter.h" />
     <ClInclude Include="gmatch.h" />
     <ClInclude Include="location.h" />
