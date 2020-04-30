@@ -4,7 +4,6 @@
 #include "pentile.h"
 #include "gmatch.h"
 #include "diff.h"
-#include "exr.h"
 #include <direct.h>
 #include <fstream>
 using namespace std;
@@ -95,10 +94,11 @@ void generate_compensate_value(const char* img_file)
 	imwrite("./output/result_pentile_r.bmp", pentile_r);*/
 	int h = 2436, w = 752 / 2 * 3;
 	Mat img = /*imread(img_file)*/Mat(Size(w, h), CV_8UC3), pentile;
-	vector<int> value{ 16, 32, 48, 64, 96, 128, 160, 192, 224, 250 },
+	vector<int> value{ 4,8,12,16,20,24,28,32,64 }, //{ 16, 32, 48, 64, 96, 128, 160, 192, 224, 250 },
 		//({ 4,8,12,16,20,24,28,32 }), //({ 12,16,19,22,25,29,32 }),
-		cross_value{ 16 * 2, 32 * 2, 48 * 2, 64 * 2, 96 * 2, 255, 160 / 2, 192 / 2, 224 / 2, 250 / 2 };
-	//({ 32,32,32,32,32,32,32,16 });
+		cross_value{ 32,32,32,32,32,32,16,16,16 };
+	//{ 16 * 2, 32 * 2, 48 * 2, 64 * 2, 96 * 2, 255, 160 / 2, 192 / 2, 224 / 2, 250 / 2 };
+	//{ 32,32,32,32,32,32,32,16 };
 	vector<int> need_x({ 60,1060 }), need_y({ 130, h - 130 });
 	for (int v = 0; v < value.size(); v++)
 	{
@@ -106,7 +106,7 @@ void generate_compensate_value(const char* img_file)
 		{
 			for (int x = 0; x < img.cols; x++)
 			{
-				img.at<Vec3b>(y, x)[1] = value[v];
+				img.at<Vec3b>(y, x)[0] = value[v];
 			}
 		}
 
@@ -114,14 +114,14 @@ void generate_compensate_value(const char* img_file)
 		{
 			for (auto x : need_x)
 			{
-				draw_cross(img, x, y, Vec3b(0, cross_value[v], 0));
+				draw_cross(img, x, y, Vec3b(cross_value[v], 0, 0));
 			}
 		}
 		char path[MAX_PATH];
-		sprintf_s(path, "./output/g_%d.bmp", value[v]);
+		sprintf_s(path, "./output/b_%d.bmp", value[v]);
 		imwrite(path, img);
 		rgb2pentile(img, pentile);
-		sprintf_s(path, "./output/pentile_g_%d.bmp", value[v]);
+		sprintf_s(path, "./output/pentile_b_%d.bmp", value[v]);
 		imwrite(path, pentile);
 	}
 	/*for (auto y : need_y)
@@ -234,7 +234,8 @@ void convert2(const char* img_file, const char* result_file)
 }
 
 void validation(const char* input_origin, const char* input_compute, 
-	const char* output_file, const int offset = 0)
+	const char* output_file,
+	ofstream& fout, const int offset = 0, const int scale = 1)
 {
 	Vec3b b(255, 0, 0), g(0, 255, 0), r(0, 0, 255), ye(0, 255, 255), black(0, 0, 0);
 	Mat origin = imread(input_origin),
@@ -250,8 +251,9 @@ void validation(const char* input_origin, const char* input_compute,
 		return;
 	}
 	Mat	out(Size(origin.cols, origin.rows), CV_8UC3, black);
-	cout <<"size : "<< origin.cols << " " << origin.rows << endl;
+	//cout <<"size : "<< origin.cols << " " << origin.rows << endl;
 	//int offset = 1;
+	int mean = 0, tmp, cnt, mmax = 0, mmin = 0;
 	for (int y = 0; y < origin.rows; y++)
 	{
 		for (int x = 0; x < origin.cols; x++)
@@ -278,15 +280,60 @@ void validation(const char* input_origin, const char* input_compute,
 			/*if (origin.at<Vec3b>(y, x)[1])
 				if (origin.at<Vec3b>(y, x)[1] > 16)
 					out.at<Vec3b>(y, x)[1] = origin.at<Vec3b>(y, x)[1]*8;*/
-			if (result.at<Vec3b>(y, x)[1] - origin.at<Vec3b>(y, x)[1] > offset)
-					out.at<Vec3b>(y, x)[1] = result.at<Vec3b>(y, x)[1] - origin.at<Vec3b>(y, x)[1];
-			else if (result.at<Vec3b>(y, x)[1] - origin.at<Vec3b>(y, x)[1] < offset)
-				out.at<Vec3b>(y, x)[2] = origin.at<Vec3b>(y, x)[1] - result.at<Vec3b>(y, x)[1];
+			if (result.at<Vec3b>(y, x)[1] > origin.at<Vec3b>(y, x)[1]
+				&& result.at<Vec3b>(y, x)[1] - origin.at<Vec3b>(y, x)[1] > offset)
+			{
+				tmp = result.at<Vec3b>(y, x)[1] - origin.at<Vec3b>(y, x)[1];
+				out.at<Vec3b>(y, x)[1] = tmp;
+				mean += tmp;
+				cnt++;
+				mmax = max(tmp, mmax);
+			}
+			else if (result.at<Vec3b>(y, x)[1] < origin.at<Vec3b>(y, x)[1]
+				&& origin.at<Vec3b>(y, x)[1] - result.at<Vec3b>(y, x)[1] > offset)
+			{
+				tmp = origin.at<Vec3b>(y, x)[1] - result.at<Vec3b>(y, x)[1];
+				out.at<Vec3b>(y, x)[2] = tmp;
+				mean += tmp;
+				cnt++;
+				mmin = min(-tmp, mmin);
+			}
 			/*else
 				out.at<Vec3b>(y, x)[2] = 255;*/
 		}
 	}
 	imwrite(output_file, out);
+	fout << "min: " << mmin << endl
+		<< "max: " << mmax << endl
+		<< "mean: " << mean / (1.0*cnt) << endl << endl;
+}
+
+void validtation_batch(const char* input_origin, const char* input_compute,
+	const char* output_file, const int offset = 0, const int scale = 0)
+{
+	_mkdir(output_file);
+	//cout << argv[3] << endl;
+	std::vector<cv::String> filenames1, filenames2;
+	cv::String folder1 = input_origin, folder2 = input_compute;
+	folder1 += "/*.bmp";
+	folder2 += "/*.bmp";
+	//cout << folder1 << endl;
+	//cout << folder2 << endl;
+	cv::glob(folder1, filenames1);
+	cv::glob(folder2, filenames2);
+	//cout << filenames1.size() << endl;
+	string outtxt = output_file;
+	outtxt += "/out.txt";
+	ofstream out(outtxt);
+	for (size_t i = 0; i < filenames1.size(); ++i)
+	{
+		out << filenames1[i] << endl << filenames2[i] << endl << endl;
+		string tmp = output_file + filenames1[i].substr(filenames1[i].find_last_of("\\"));
+		//cout << tmp << endl;
+		validation(filenames1[i].c_str(), filenames2[i].c_str(), tmp.c_str(), out, offset, scale);
+	}
+	out.close();
+	return ;
 }
 
 // 比较g4-8-12-16-20-24-28-32的demura值是否符合递增趋势
@@ -452,8 +499,223 @@ void add_scale()
 	}
 }
 
-//#define VALIDATION
+// 读入一张图片，计算每个点的location，然后把亮度值输出(exr)
+void intensity_to_exr(const char* inpath, const char* outpath,
+	const char* infilename, const char* outfilename)
+{
+	_mkdir(outpath);
+	const int pentile_width = 752, pentile_height = 2436;
+	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH],
+		//output
+		mask_file[MAX_PATH], out_file[MAX_PATH];
+	sprintf_s(b_file, "%s/%s", inpath, infilename);
+	sprintf_s(g_file, "%s/%s", inpath, infilename);
+	sprintf_s(r_file, "%s/%s", inpath, infilename);
+	sprintf_s(mask_file, "%s/mask.png", inpath);
+	sprintf_s(out_file, "%s/%s", outpath, outfilename);
+	Mat mask = imread(mask_file, CV_8UC1);
+	const RGB b = BLUE, g = GREEN, r = RED;
+	vector<Mat> rgb;
+	Mat bb = imread(b_file), gg = imread(g_file), rr = imread(r_file);
+	rgb.push_back(bb);
+	rgb.push_back(gg);
+	rgb.push_back(rr);
+	if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
+	{
+		cout << "file read error" << endl << b_file << ", or " << g_file << ", or " << r_file << endl;
+	}
+	if (mask.data == nullptr)
+		preprocess(rgb, 0, mask_file, mask);
+
+	vector<vector<Point>> centers_error(3);
+	vector<vector<vector<LED_info>>> relationship(3);
+	{
+		if (tmp_valid_find_location(rgb, mask, outpath, pentile_height, relationship))
+			return ;
+		cout << "--------------------" << endl;
+		//compute_intensity_to_exr(relationship, gg, inpath, out_file,
+			//pentile_height, pentile_width / 2 * 3);
+		vector<int> val(3, 0), cnt(3, 0);
+		for (auto r : relationship[1])
+		{
+			for (auto re : r)
+			{
+				if (re.state == VALID && re.locate.y>=0 
+					&& re.locate.y< pentile_width/2*3)
+				{
+					if (re.locate.x >= 0 && re.locate.x < pentile_height / 3)
+					{
+						val[0] += gg.at<Vec3b>(re.pixel.y, re.pixel.x)[1];
+						cnt[0]++;
+					}
+					else if (re.locate.x < pentile_height / 3 * 2)
+					{
+						val[1] += gg.at<Vec3b>(re.pixel.y, re.pixel.x)[1];
+						cnt[1]++;
+					}
+					else if(re.locate.x < pentile_height)
+					{
+						val[2] += gg.at<Vec3b>(re.pixel.y, re.pixel.x)[1];
+						cnt[2]++;
+					}
+				}
+			}
+		}
+		for (int i = 0; i < val.size(); i++)
+		{
+			cout << val[i] << " " << cnt[i] << " ";
+			cout << val[i] * 1.0 / cnt[i] << " " << endl;
+		}
+	}
+	cout << "the end." << endl;
+}
+
+// 读入一系列图片(如g4-g32)，根据这些图片，计算出亮度-mura值对应关系，然后反向输出平均值对应的mura值
 #define GEXPO_RANGE // 16_224 4_32
+void compute_demura_value_use_range(char* inpath, char* outpath, 
+	char* prefix, char* suffix, const vector<int>& ms)
+{
+	//String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
+	//	outpath("E:/coding/gray_game/demura/output");
+	//String inpath("E:\\document\\研二\\demura\\20200407_9块屏\\output1"), // ("./input2.2_20200404"),
+	//	outpath("E:\\document\\研二\\demura\\20200409-9块屏结果\\output1"), 
+	//	prefix("2号屏pentile_g_"),
+	//	postfix("-曝光时间750ms-增益3-施耐德镜头光圈5.7");
+	//String valid_path("E:\\document\\研二\\demura\\20200409-9块屏结果\\output1"); 
+	// ("./input2.2_20200404");
+	
+	cout << "inpath [argv1]" << inpath << endl
+		<< "outpath [argv2]" << outpath << endl
+		<< "prefix [argv3]" << prefix << endl
+		<< "suffix [argv4]" << suffix << endl;
+	_mkdir(outpath);
+	int pentile_width = 752, pentile_height = 2436;
+	int target_g_id;
+	// 处理输入文件名字
+	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH], range_file[7][MAX_PATH],
+		//output
+		mask_file[MAX_PATH], cross_file[MAX_PATH],
+		output_csv[MAX_PATH];
+	
+	/// 1
+	vector<int> capture_pentile_g_value({ 4,8,12,16,20,24,28,32 });
+	//const vector<int> ms{ 2000,2000,1800,750,1200,800,600,500 };
+	target_g_id = 3;
+	sprintf_s(b_file, "%s/%s%02d%s%04d.bmp", inpath, prefix,
+		capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
+	sprintf_s(g_file, "%s/%s%02d%s%04d.bmp", inpath, prefix,
+		capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
+	sprintf_s(r_file, "%s/%s%02d%s%04d.bmp", inpath, prefix,
+		capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
+	cout << g_file << endl;
+	for (int i = 0; i < capture_pentile_g_value.size(); i++)
+	{
+		sprintf_s(range_file[i], "%s/%s%02d%s%04d.bmp", inpath, prefix,
+			capture_pentile_g_value[i], suffix, ms[i]);
+	}
+
+	// mask
+	sprintf_s(mask_file, "%s/mask.png", inpath);
+	Mat mask = imread(mask_file, CV_8UC1);
+	const RGB b = BLUE, g = GREEN, r = RED;
+	vector<Mat> rgb;
+	Mat bb = imread(b_file), gg = imread(g_file), rr = imread(r_file);
+	rgb.push_back(bb);
+	rgb.push_back(gg);
+	rgb.push_back(rr);
+	if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
+	{
+		cout << "file read error" << endl << b_file << endl
+			<< "or " << g_file << endl
+			<< "or " << r_file << endl;
+	}
+	if (mask.data == nullptr)
+		preprocess(rgb, 0, mask_file, mask);
+	sprintf_s(output_csv, "%s/pentile_rgb_relationship.csv", outpath);
+
+	cout << "--------------------" << endl;
+	vector<vector<Point>> centers_error(3);
+	vector<vector<vector<LED_info>>> relationship(3);
+	{
+		RGB select_rgb = BLUE;
+		if (find_OLED_location_with_rgb_combination(rgb, mask,
+			outpath, pentile_height, relationship))
+		{
+			cout << "something error!" << endl;
+			return ;
+		}
+		cout << "--------------------" << endl;
+		// to test 4,8,11,16,23,32,64 value
+		vector<Mat> pic;
+		{
+			for (int i = 0; i < capture_pentile_g_value.size(); i++)
+			{
+				Mat tmp = imread(range_file[i]);
+				if (tmp.data == NULL)
+				{
+					cout << range_file[i] << "read error." << endl;
+					return ;
+				}
+				pic.push_back(tmp);
+				cvtColor(*pic.rbegin(), *pic.rbegin(), COLOR_BGR2GRAY);
+			}
+		}
+		compute_dumura(relationship, capture_pentile_g_value, ms,
+			pic, target_g_id, outpath, pentile_height, pentile_width / 2 * 3);
+	}
+	cout << "the end." << endl;
+	return ;
+}
+
+// demura后的拍摄图片，重新计算对应的亮度-mura关系下的mura值
+void compute_single_validation(char* inpath, char* outpath, char* prefix, char* valid_path)
+{
+	cout << "inpath [argv1]" << inpath << endl
+		<< "outpath [argv2]" << outpath << endl
+		<< "prefix [argv3]" << prefix << endl
+		<< "suffix [argv4]" << valid_path << endl;
+	_mkdir(outpath);
+	int pentile_width = 752, pentile_height = 2436;
+	int target_g_id;
+	
+	vector<int> capture_pentile_g_value({ 4,8,12,16,20,24,28,32 });
+	char valid_b_file[MAX_PATH], valid_g_file[MAX_PATH], valid_r_file[MAX_PATH],
+		//output
+		valid_mask_file[MAX_PATH];
+	//int valid_ms = 1000;
+	sprintf_s(valid_b_file, "%s/%s.bmp", valid_path, prefix);
+	sprintf_s(valid_g_file, "%s/%s.bmp", valid_path, prefix);
+	sprintf_s(valid_r_file, "%s/%s.bmp", valid_path, prefix);
+	sprintf_s(valid_mask_file, "%s/mask.png", valid_path);
+	Mat valid_mask = imread(valid_mask_file, CV_8UC1);
+	const RGB b = BLUE, g = GREEN, r = RED;
+	vector<Mat> rgb;
+	Mat bb = imread(valid_b_file), gg = imread(valid_g_file), rr = imread(valid_r_file);
+	rgb.push_back(bb);
+	rgb.push_back(gg);
+	rgb.push_back(rr);
+	if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
+	{
+		cout << "file read error" << endl << valid_b_file << ", or " << valid_g_file << ", or " << valid_r_file << endl;
+	}
+	if (valid_mask.data == nullptr)
+		preprocess(rgb, 0, valid_mask_file, valid_mask);
+
+	vector<vector<Point>> centers_error(3);
+	vector<vector<vector<LED_info>>> relationship(3);
+	{
+		if (tmp_valid_find_location(rgb, valid_mask, outpath, pentile_height, relationship))
+			return;
+		cout << "--------------------" << endl;
+		compute_dumura_single_pic(relationship, capture_pentile_g_value, gg,
+			inpath, outpath, pentile_height, pentile_width / 2 * 3);
+
+	}
+	cout << "the end." << endl;
+	return ;
+}
+
+//#define VALIDATION
 int main(int argc, char* argv[])
 {
 	//draw_pattern2("./output/test2", pentile_width, pentile_height);
@@ -474,233 +736,129 @@ int main(int argc, char* argv[])
 		"E:/document/研二/demura/重复试验/不关屏/第二轮/1号屏750_origin_pentile-曝光时间750ms-增益3-施耐德新镜头光圈5.4.bmp",
 		"E:/document/研二/demura/重复试验/validation/1号屏750_origin_pentile-曝光时间750ms-增益3-施耐德新镜头光圈5.4.bmp");*/
 	//add_scale();
-	//validation(argv[1], argv[2], argv[3], atoi(argv[4]));
 
-	int w = 200, h = 100;
-	vector<float> pixel(w*h * 3, 0);
-	for (int i = 0; i < h; i++)
+	//_mkdir(argv[2]);
+	//std::vector<cv::String> filenames;
+	//cv::String folder = argv[1];
+	//folder += "/*.bmp";
+	//cv::glob(folder, filenames);
+	////cout << filenames1.size() << endl;
+	//string outtxt = argv[2];
+	//outtxt += "/out.txt";
+	//ofstream out(outtxt);
+	//for (size_t i = 0; i < filenames.size(); ++i)
+	//{
+	//	out << filenames[i] << endl << argv[5] << endl << endl;
+	//	string tmp = argv[2] + filenames[i].substr(filenames[i].find_last_of("\\"));
+	//	//cout << tmp << endl;
+	//	validation(filenames[i].c_str(), argv[5], tmp.c_str(), out,
+	//		atoi(argv[3]), atoi(argv[4]));
+	//}
+	//out.close();
+	//return 0;
+
+	/*vector<float> pic1, pic2;
+	int w, h;
+	cout << argv[1] << endl << argv[2] << endl;
+	read_exr(argv[1], w, h, pic1);
+	read_exr(argv[2], w, h, pic2);
+	Mat	out(Size(w, h), CV_8UC3);
+	int x1, y1, x2, y2;
+	//vector<float> out(w*h * 3, 0);
+	float a, mmin=0, mmax=0;
+	for (int y = 100; y < h; y++)
 	{
-		for (int j = 0; j < w; j++)
+		for (int x = 0; x < w; x++)
 		{
-			pixel[(i * w + j) * 3 + 1] = (i * w + j) % 255 / 255.0;
-		}
-	}
-	cout << "here" << endl;
-	save_exr_with_float("test.exr", w, h, pixel);
-
-	system("pause");
-	return 0;
-
-	/*String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
-		outpath("E:/coding/gray_game/demura/output");*/
-	//String inpath("E:\\document\\研二\\demura\\20200407_9块屏\\output1"), // ("./input2.2_20200404"),
-	//	outpath("E:\\document\\研二\\demura\\20200409-9块屏结果\\output1"), 
-	//	prefix("2号屏pentile_g_"),
-	//	postfix("-曝光时间750ms-增益3-施耐德镜头光圈5.7");
-	//String valid_path("E:\\document\\研二\\demura\\20200409-9块屏结果\\output1"); // ("./input2.2_20200404");
-	String inpath(argv[1]),
-		outpath(argv[2]),
-		prefix(argv[3]),
-		suffix(argv[4]), 
-		valid_path(argv[5]);
-	cout << "inpath [argv1]" << inpath << endl
-		<< "outpath [argv2]" << outpath << endl
-		<< "prefix [argv3]" << prefix << endl
-		<< "suffix [argv4]" << suffix << endl
-		<< "valid_path [argv5]" << valid_path << endl << endl;
-	_mkdir(outpath.c_str());
-	int pentile_width = 752, pentile_height = 2436;
-	int target_g_id;
-	//vector<int> capture_pentile_g_value({ 4,8,11,16,23,32,64 });		  
-	//vector<int> capture_pentile_g_value({ 12,16,19,22,25,29,32 });
-#ifndef GEXPO_RANGE
-	vector<int> capture_pentile_g_value({ 4,8,12,16,20,24,28,32 });
-	const vector<int> ms{ 1,1,1,1,1,1,1,1 };
-	target_g_id = 3;
-#else
-	//const vector<int> capture_pentile_g_value{ 16, 32, 48, 64, 96, 128, 160, 192, 224, 250 };
-	//const vector<int> ms{ 2400, 700, 300, 160, 70, 35, 22, 14, 10, 8 };
-	vector<int> capture_pentile_g_value({ 4,8,12,16,20,24,28,32 });
-	const vector<int> ms{ 2000,2000,1800,750,1200,800,600,500 };
-	target_g_id = 3;
-#endif
-
-	// for expo
-	//const vector<int> capture_pentile_g_value{750, 1100, 1450, 1800, 2150, 2500};
-	/*vector<int> capture_pentile_g_value({ atoi(argv[6]),atoi(argv[7]),atoi(argv[8]),
-		atoi(argv[9]), atoi(argv[10]), atoi(argv[11])});
-	cout << "expo : ";
-	for (auto c : capture_pentile_g_value)
-		cout << c << " ";
-	cout << endl;*/
-
-#ifndef VALIDATION
-	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH], range_file[7][MAX_PATH],
-		//output
-		mask_file[MAX_PATH], cross_file[MAX_PATH],
-		output_csv[MAX_PATH];
-	/*sprintf_s(b_file, "%s/%s%s%s.bmp", inpath.c_str(), prefix.c_str(), argv[9], suffix.c_str());
-	sprintf_s(g_file, "%s/%s%s%s.bmp", inpath.c_str(), prefix.c_str(), argv[9], suffix.c_str());
-	sprintf_s(r_file, "%s/%s%s%s.bmp", inpath.c_str(), prefix.c_str(), argv[9], suffix.c_str());
-	for (int i = 0; i < capture_pentile_g_value.size(); i++)
-	{
-		sprintf_s(range_file[i], "%s/%s%s%s.bmp", inpath.c_str(), prefix.c_str(),
-			argv[i+6], suffix.c_str());
-	}*/
-#ifndef GEXPO_RANGE
-	sprintf_s(b_file, "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 16, suffix.c_str());
-	sprintf_s(g_file, "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 16, suffix.c_str());
-	sprintf_s(r_file, "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 16, suffix.c_str());
-	for (int i = 0; i < capture_pentile_g_value.size(); i++)
-	{
-		sprintf_s(range_file[i], "%s/%s%d%s.bmp", inpath.c_str(), prefix.c_str(), 
-			capture_pentile_g_value[i], suffix.c_str());
-	}
-#else
-	sprintf_s(b_file, "%s/%s%02d%s%04d.bmp", inpath.c_str(), prefix.c_str(),
-		capture_pentile_g_value[target_g_id], suffix.c_str(), ms[target_g_id]);
-	sprintf_s(g_file, "%s/%s%02d%s%04d.bmp", inpath.c_str(), prefix.c_str(),
-		capture_pentile_g_value[target_g_id], suffix.c_str(), ms[target_g_id]);
-	sprintf_s(r_file, "%s/%s%02d%s%04d.bmp", inpath.c_str(), prefix.c_str(),
-		capture_pentile_g_value[target_g_id], suffix.c_str(), ms[target_g_id]);
-	cout << g_file << endl;
-	for (int i = 0; i < capture_pentile_g_value.size(); i++)
-	{
-		sprintf_s(range_file[i], "%s/%s%02d%s%04d.bmp", inpath.c_str(), prefix.c_str(),
-			capture_pentile_g_value[i], suffix.c_str(), ms[i]);
-	}
-#endif
-	sprintf_s(mask_file, "%s/mask.png", inpath.c_str());
-	Mat mask = imread(mask_file, CV_8UC1);
-	const RGB b = BLUE, g = GREEN, r = RED;
-	vector<Mat> rgb;
-	Mat bb = imread(b_file), gg = imread(g_file), rr = imread(r_file);
-	rgb.push_back(bb);
-	rgb.push_back(gg);
-	rgb.push_back(rr);
-	if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
-	{
-		cout << "file read error" << endl << b_file <<endl 
-			<< "or " << g_file << endl
-			<< "or " << r_file << endl;
-	}
-	if (mask.data == nullptr)
-		preprocess(rgb, 0, mask_file, mask);
-	sprintf_s(output_csv, "%s/pentile_rgb_relationship.csv", outpath.c_str());
-
-	cout << "--------------------" << endl;
-	vector<vector<Point>> centers_error(3);
-	vector<vector<vector<LED_info>>> relationship(3);
-	{
-		RGB select_rgb = BLUE;
-		if (find_OLED_location_with_rgb_combination(rgb, mask, 
-			outpath.c_str(), pentile_height, relationship))
-		{
-			cout << "something error!" << endl;
-			system("pause");
-			return 0;
-		}
-		cout << "--------------------" << endl;
-		// to test 4,8,11,16,23,32,64 value
-		vector<Mat> pic;
-		{
-			for (int i=0;i< capture_pentile_g_value.size();i++)
+			a = pic1[(y*w + x) * 3 + 1] - pic2[(y*w + x) * 3 + 1];
+			if (a > 0)
 			{
-				Mat tmp = imread(range_file[i]);
-				if (tmp.data == NULL)
+				out.at<Vec3b>(y, x)[1] = __min(255, a * 1000);
+				if (a > mmax)
 				{
-					cout << range_file[i] << "read error." << endl;
-					system("pause");
-					return 0;
+					x1 = x;
+					y1 = y;
+					mmax = a; //__max(a / pic1[(y*w + x) * 3 + 1], mmax);
 				}
-				pic.push_back(tmp);
-				cvtColor(*pic.rbegin(), *pic.rbegin(), COLOR_BGR2GRAY);
+			}
+			else if(a<0)
+			{
+				out.at<Vec3b>(y, x)[2] = __min(255, -a * 1000);
+				if (a < mmin)
+				{
+					x2 = x;
+					y2 = y;
+					mmin = a;
+				}
 			}
 		}
-		compute_dumura(relationship, capture_pentile_g_value, ms,
-			pic, target_g_id, outpath.c_str(), pentile_height, pentile_width / 2 * 3);
 	}
-#else
-	char valid_b_file[MAX_PATH], valid_g_file[MAX_PATH], valid_r_file[MAX_PATH],
-		//output
-		valid_mask_file[MAX_PATH];
-	//int valid_ms = 1000;
-	sprintf_s(valid_b_file, "%s/%s.bmp", valid_path.c_str(), prefix.c_str());
-	sprintf_s(valid_g_file, "%s/%s.bmp", valid_path.c_str(), prefix.c_str());
-	sprintf_s(valid_r_file, "%s/%s.bmp", valid_path.c_str(), prefix.c_str());
-	sprintf_s(valid_mask_file, "%s/mask.png", valid_path.c_str());
-	Mat valid_mask = imread(valid_mask_file, CV_8UC1);
-	const RGB b = BLUE, g = GREEN, r = RED;
-	vector<Mat> rgb;
-	Mat bb = imread(valid_b_file), gg = imread(valid_g_file), rr = imread(valid_r_file);
-	rgb.push_back(bb);
-	rgb.push_back(gg);
-	rgb.push_back(rr);
-	if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
-	{
-		cout << "file read error" << endl << valid_b_file << ", or " << valid_g_file << ", or " << valid_r_file << endl;
-	}
-	if (valid_mask.data == nullptr)
-		preprocess(rgb, 0, valid_mask_file, valid_mask);
+	//save_exr_with_float(argv[3], w, h, out);
+	imwrite(argv[3], out);
+	cout << mmin << " " << mmax << endl
+		<< x1 << "," << y1 << endl
+		<< x2 << "," << y2 << endl;
+	cout << "end." << endl;
+	return 0;*/
 
-	vector<vector<Point>> centers_error(3);
-	vector<vector<vector<LED_info>>> relationship(3);
+	if (argv[1][0] == 'a')
+		intensity_to_exr(argv[2], argv[3], argv[4], argv[5]);
+	else if (argv[1][0] == 'b')
 	{
-		if(tmp_valid_find_location(rgb, valid_mask, outpath.c_str(), pentile_height, relationship))
-			return 0;
-		//int  cnt1 =0, cnt2 = 0, cnt3 = 0;
-		//double sum1 = 0, sum2 = 0, sum3 = 0;
-		//vector<int> rect1({649, 2880, 512, 3429}),
-		//	rect3({ 3843, 4440, 308, 247 }),
-		//	rect2({ 10371, 6284, 546, 546 });
-		//cout << rgb[1].type() << CV_8UC3;
-		//for(auto pp : relationship[1])
-		//	for (auto p : pp)
-		//	{
-		//		if(p.state==VALID && rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1]!= 255)
-		//			/*if (p.pixel.x >= 0 && p.pixel.x <= 1115)
-		//			{
-		//				sum1 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
-		//				cnt1++;
-		//			}
-		//			else if (p.pixel.x > 1115 && p.pixel.x <= 10211)
-		//			{
-		//				sum2 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
-		//				cnt2++;
-		//			}
-		//			else if (p.pixel.x > 10211 && p.pixel.x <= 11229)
-		//			{
-		//				sum3 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
-		//				cnt3++;
-		//			}*/
-		//			if (p.pixel.x >= rect1[0] && p.pixel.x <= rect1[0]+ rect1[2]
-		//				&& p.pixel.y >= rect1[1] && p.pixel.y <= rect1[1] + rect1[3])
-		//			{
-		//				sum1 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
-		//				cnt1++;
-		//			}
-		//			else if (p.pixel.x >= rect2[0] && p.pixel.x <= rect2[0] + rect2[2]
-		//				&& p.pixel.y >= rect2[1] && p.pixel.y <= rect2[1] + rect2[3])
-		//			{
-		//				sum2 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
-		//				cnt2++;
-		//			}
-		//			else if (p.pixel.x >= rect3[0] && p.pixel.x <= rect3[0] + rect3[2]
-		//				&& p.pixel.y >= rect3[1] && p.pixel.y <= rect3[1] + rect3[3])
-		//			{
-		//				sum3 += rgb[1].at<Vec3b>(p.pixel.y, p.pixel.x)[1];
-		//				cnt3++;
-		//			}
-		//	}
-		//cout << cnt1 << " " << cnt2 << " " << cnt3 << endl;
-		//cout << sum1/ cnt1 << " " << sum2/ cnt2 << " " << sum3/ cnt3 << endl;
-		cout << "--------------------" << endl;
-		compute_dumura_single_pic(relationship, capture_pentile_g_value, gg,
-			inpath.c_str(), outpath.c_str(), pentile_height, pentile_width / 2 * 3);
-
+		vector<int> ms{ 2000,2000,1800,750,1200,800,600,500 };
+		if (argc == 5 + 8)
+		{
+			for (int i = 1; i <= 8; i++)
+			{
+				ms[i] = atoi(argv[i + 5]);
+			}
+		}
+		compute_demura_value_use_range(argv[2], argv[3], argv[4], argv[5], ms);
 	}
-#endif
-	cout << "the end." << endl;
-	//system("pause");
+	else if (argv[1][0] == 'c')
+		compute_single_validation(argv[2], argv[3], argv[4], argv[5]);
+	else if (argv[1][0] == 'd')
+		validtation_batch(argv[2], argv[3], argv[4], atoi(argv[5]), atoi(argv[6]));
 	return 0;
 }
+
+/*
+亮度(demura后高斯的最小二乘拟合值)直接输出为exr
+:: mode: a
+:: para: input_path 
+::		 output_path 
+::		 input_file 
+::		 output_exr_file_name_prefix
+demura.exe a E:/document/研二/demura/重复试验/三号屏/第一轮 ^
+E:/document/研二/demura/重复试验/三号屏/第一轮/result ^
+3号屏_pentile_g_16.bmp曝光时间2000ms-增益5-施耐德新镜头光圈5.4.bm.bmp ^
+result
+
+通过八张图片的亮度得到亮度-mura值关系，线性插值得到demura值
+:: mode: b
+:: para: input_path
+::		 output_path
+::		 prefix
+::		 suffix
+demura.exe b E:/document/研二/demura/20200407_9块屏/1号屏 ^
+E:/document/研二/demura/20200407_9块屏/output1_no_interpolation ^
+1号屏pentile_g_ ^
+-曝光时间750ms-增益3-施耐德镜头光圈5.7
+
+验证demura后的图片在原【亮度-mura值关系】中的mura值
+:: mode: c
+:: para: input_path 
+::		 output_path 
+::		 prefix 
+::		 valid_path
+demura.exe c E:/document/研二/demura/20200407_9块屏/output1 ^
+E:/document/研二/demura/20200409-9块屏结果/output1 ^
+1号屏result_pentile-曝光时间750ms-增益3-施耐德镜头光圈5.7 ^
+E:/document/研二/demura/20200409-9块屏结果/output1
+
+两张原图直接相减
+:: mode: d
+:: para: input_path1 input_path2 output_path difference_offset scale
+demura.exe d E:/document/研二/demura/重复试验/一号屏/关屏并重启屏/第一轮 E:/document/研二/demura/重复试验/一号屏/关屏并重启屏/第二轮 ^
+E:/document/研二/demura/重复试验/一号屏/关屏并重启屏/第一轮/result_test 0 1
+*/

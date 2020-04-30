@@ -27,3 +27,6 @@ void compute_dumura(const std::vector<std::vector<std::vector<LED_info>>>& cente
 void compute_dumura_single_pic(std::vector<std::vector<std::vector<LED_info>>>& relationship,
 	const std::vector<int>& capture_pentile_g_value, const cv::Mat& img, 
 	const char* input_prefix, const char* output_prefix, int width, int height);
+
+void compute_intensity_to_exr(std::vector<std::vector<std::vector<LED_info>>>& relationship,
+	const cv::Mat& img, const char* input_prefix, const char* output_prefix, int width, int height);

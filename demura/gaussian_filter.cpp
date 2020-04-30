@@ -635,7 +635,7 @@ void match_with_location2(Mat& result, const char *outfile,
 	const char *input_txt_file, const char *output_csv_file,
 	const vector<vector<LED_info>>& relationship,
 	const vector<int>& capture_pentile_g_value,
-	const Mat& img, const vector<VectorXd>& kernels, RGB select_rgb)
+	const Mat& img, const vector<VectorXd>& kernels)//, RGB select_rgb)
 {
 	flann::Matrix<int> indices;
 	flann::Matrix<double> dists;
@@ -892,7 +892,7 @@ void compute_dumura_single_pic(vector<vector<vector<LED_info>>>& relationship,
 		sprintf(output_csv, "%s/valid_gaussian_val.txt", output_prefix);
 		match_with_location2(img_result, result_file, input_txt, output_csv,
 			relationship[select_rgb], capture_pentile_g_value,
-			img, kernels, (RGB)select_rgb);
+			img, kernels); // , (RGB)select_rgb);
 	}
 	p.endAndPrint();
 
@@ -935,10 +935,152 @@ void compute_dumura_single_pic(vector<vector<vector<LED_info>>>& relationship,
 	//		draw_cross(rgb, x, y, Vec3b(0, 32, 0));
 	//	}
 	//}
+
 	//sprintf(result_file, "%s/result_rotate_90.bmp", output_prefix);
 	//imwrite(result_file, rgb);
 	//Mat pentile;
 	//rgb2pentile(rgb, pentile);
 	//sprintf(result_file, "%s/result_pentile.bmp", output_prefix);
 	//imwrite(result_file, pentile);
+}
+
+void match_with_location_to_exr(vector<float>& result, const char *outfile,
+	const vector<vector<LED_info>>& relationship,
+	const Mat& img, const vector<VectorXd>& kernels, int width, int height)
+{
+	cout << "compute : " << outfile << endl;
+	// flann
+	Mat pic = img.clone();
+	VectorXd center_region(9);
+	flann::Matrix<int> indices;
+	flann::Matrix<double> dists;
+	vector<double> kd_tree_data;
+	cvtColor(pic, pic, cv::COLOR_BGR2GRAY);
+	for (auto d : relationship)
+		for (auto dd : d)
+		{
+			center_region << pic.at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
+				pic.at<byte>(dd.pixel.y - 1, dd.pixel.x),
+				pic.at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
+				pic.at<byte>(dd.pixel.y, dd.pixel.x - 1),
+				pic.at<byte>(dd.pixel.y, dd.pixel.x),
+				pic.at<byte>(dd.pixel.y, dd.pixel.x + 1),
+				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
+				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x),
+				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);
+			center_region.normalize();
+			for (int mi = 0; mi < 9; mi++)
+				kd_tree_data.push_back(center_region[mi]);
+		}
+	query_by_kdtree(kd_tree_data, kernels, indices, dists);
+
+	set<int> index_set;
+	VectorXd ones(9);
+	ones << 1, 1, 1, 1, 1, 1, 1, 1, 1;
+	int centers_id = 0;
+	Point cur;
+	for (int vj = 0; vj < relationship.size(); vj++)
+	{
+		//for (int vi = 0; vi < relationship[vj].size(); vi++)
+		for(auto re: relationship[vj])
+		{
+			int index = indices[centers_id][0];
+			MatrixXd A(kernels[index]);
+			if (re.state == VALID && re.locate.x >= 0 && re.locate.x < width
+				&& re.locate.y >= 0 && re.locate.y < height)
+			{
+				cur = re.pixel;
+				center_region << pic.at<byte>(cur.y - 1, cur.x - 1),
+					pic.at<byte>(cur.y - 1, cur.x),
+					pic.at<byte>(cur.y - 1, cur.x + 1),
+					pic.at<byte>(cur.y, cur.x - 1),
+					pic.at<byte>(cur.y, cur.x),
+					pic.at<byte>(cur.y, cur.x + 1),
+					pic.at<byte>(cur.y + 1, cur.x - 1),
+					pic.at<byte>(cur.y + 1, cur.x),
+					pic.at<byte>(cur.y + 1, cur.x + 1);
+				//guassian_mul_value[centers_id] = A.colPivHouseholderQr().solve(center_region)[0];
+				//width - 1 - x, y  <=> y, x
+				//result[((width - 1 - re.locate.x)*width + re.locate.y) * 3 + 1] = A.colPivHouseholderQr().solve(center_region)[0];
+				result[(re.locate.y*width + re.locate.x) * 3 + 1] = A.colPivHouseholderQr().solve(center_region)[0] / 1000;
+			}
+			index_set.insert(index);
+			centers_id++;
+		}
+	}
+	cout << outfile << endl;
+	save_exr_with_float(outfile, width, height, result);
+}
+
+void compute_intensity_to_exr(vector<vector<vector<LED_info>>>& relationship,
+	const cv::Mat& img, const char* input_prefix, const char* output_prefix, int width, int height)
+{
+	Performance p;
+	vector<VectorXd> kernels;
+	kernels.resize(sample_of_center*sample_of_center, VectorXd(9));
+	cout << "[match guassian] matching intensity to exr..." << endl;
+	//Mat img_result = Mat(Size(width, height), CV_8UC3, Scalar(0, 0, 0));
+	vector<float> result(width*height * 3, 0);
+	vector<double> sigma_bgr({ 0.66, 0.55, 0.64 });
+	//for (int i = 0; i < relationship.size(); i++)
+	int select_rgb = 1;
+	{
+		/*double sigma_init, sigma, loss_old, loss = 1000000;
+		bool flag = false;
+		for (sigma_init=0.5; sigma_init < 1.5; sigma_init += 0.1)
+		{
+			loss_old = loss;
+			loss = compute_sigma(data[i], kernels, sigma_init, sigma_init);
+			if (!flag && loss_old - loss>0 )
+			{
+				flag = true;
+			}
+			else if(flag && loss_old - loss < 0)
+			{
+				break;
+			}
+		}
+		sigma_init -= 0.1;
+		cout << "init sigma: " << sigma_init << " ";
+		flag = false;
+		for (sigma = sigma_init - 0.1; sigma < sigma_init+0.1; sigma += 0.01)
+		{
+			loss_old = loss;
+			loss = compute_sigma(data[i], kernels, sigma, sigma);
+			if (!flag && loss_old - loss > 0)
+			{
+				flag = true;
+			}
+			else if (flag && loss_old - loss < 0)
+			{
+				break;
+			}
+		}
+		sigma -= 0.01;
+		sigma_bgr[select_rgb] = sigma;
+		cout <<"final use sigma: "<< sigma_bgr[select_rgb] << endl; */
+
+		get_kernels(kernels, sigma_bgr[select_rgb], sigma_bgr[select_rgb]);
+		char result_file[MAX_PATH], input_txt[MAX_PATH], output_csv[MAX_PATH];
+		sprintf(result_file, "%s_%s.exr",
+			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
+		match_with_location_to_exr(result, result_file,
+			relationship[select_rgb], img, kernels, width, height);//, (RGB)select_rgb);
+	}
+	p.endAndPrint();
+
+	cout << "total kernels count:" << kernels.size() << endl;
+	//char result_file[MAX_PATH];
+	//sprintf(result_file, "%s/valid_result.png", output_prefix);
+	//// rotate
+	//img_result = img_result(cv::Rect(0, 0, width, height));
+	//Mat rgb(Size(height, width), CV_8UC3, Scalar(0, 0, 0));
+	//for (int y = 0; y < height; y++)
+	//{
+	//	for (int x = 0; x < width; x++)
+	//	{
+	//		rgb.at<Vec3b>(width - 1 - x, y) = img_result.at<Vec3b>(y, x);
+	//	}
+	//}
+	//imwrite(result_file, rgb);
 }

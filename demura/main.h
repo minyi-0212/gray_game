@@ -1,6 +1,7 @@
 #pragma once
 #define _CRT_SECURE_NO_WARNINGS
 #include "Performance.h"
+#include "exr.h"
 #include <iostream>
 #include <opencv2/opencv.hpp>
 #include <vector>

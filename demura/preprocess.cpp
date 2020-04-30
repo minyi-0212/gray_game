@@ -42,3 +42,32 @@ void preprocess(vector<Mat>& rgb,
 	cout << "[output mask]: " << outfile << endl;
 	imwrite(outfile, mask);
 }
+
+void preprocess(cv::Mat& img, int low_limit, const char *outfile, cv::Mat& mask)
+{
+	const int ks = 5, sigma = 2, /*low_limit = 255 / 100,*/ erode_ks = 7;
+	Mat process = img.clone() * 100;
+	cvtColor(process, process, CV_BGR2GRAY);
+	mask = Mat(process.size(), CV_8UC1, Scalar(0));
+	GaussianBlur(process, process, Size(ks, ks), sigma, sigma);
+	cout << "rows*cols: " << process.rows << "*" << process.cols << endl;
+	for (int i = 0; i < process.rows; i++)
+	{
+		for (int j = 0; j < process.cols; j++)
+		{
+			if (process.at<byte>(i, j) > low_limit)
+			{
+				mask.at<byte>(i, j) = 255;
+			}
+			else
+			{
+				mask.at<byte>(i, j) = 0;
+			}
+		}
+	}
+	Mat element = getStructuringElement(MORPH_RECT, Size(erode_ks, erode_ks));
+	erode(mask, mask, element);
+	//GaussianBlur(mask, mask, Size(5, 5), 2, 2);
+	cout << "[output single mask]: " << outfile << endl;
+	imwrite(outfile, mask);
+}
