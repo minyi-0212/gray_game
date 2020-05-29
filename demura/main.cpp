@@ -66,6 +66,49 @@ void merge()
 	}
 	imwrite("./output/merge.png", bgr);
 }
+
+void split_rgb()
+{
+	Mat bgr = imread("E:/document/研二/demura/20200519-20200519_g32/result_rotate_90.bmp"),
+		r(bgr.size(), bgr.type()),
+		g(bgr.size(), bgr.type()),
+		b(bgr.size(), bgr.type());
+	for (int y = 0; y < r.rows; y++)
+	{
+		for (int x = 0; x < r.cols; x++)
+		{
+			b.at<Vec3b>(y, x)[0] = bgr.at<Vec3b>(y, x)[0];
+			g.at<Vec3b>(y, x)[1] = bgr.at<Vec3b>(y, x)[1];
+			r.at<Vec3b>(y, x)[2] = bgr.at<Vec3b>(y, x)[2];
+		}
+	}
+	char result_file[MAX_PATH];
+	Mat pentile;
+	rgb2pentile(b, pentile);
+	sprintf(result_file, "%s/single_result_b.bmp",
+		"E:/document/研二/demura/20200519-20200519_g32");
+	imwrite(result_file, b);
+	sprintf(result_file, "%s/single_result_pentile_b.bmp",
+		"E:/document/研二/demura/20200519-20200519_g32");
+	imwrite(result_file, pentile);
+
+	rgb2pentile(g, pentile);
+	sprintf(result_file, "%s/single_result_g.bmp",
+		"E:/document/研二/demura/20200519-20200519_g32");
+	imwrite(result_file, g);
+	sprintf(result_file, "%s/single_result_pentile_g.bmp", 
+		"E:/document/研二/demura/20200519-20200519_g32");
+	imwrite(result_file, pentile);
+
+	rgb2pentile(r, pentile);
+	sprintf(result_file, "%s/single_result_r.bmp",
+		"E:/document/研二/demura/20200519-20200519_g32");
+	imwrite(result_file, r);
+	sprintf(result_file, "%s/single_result_pentile_r.bmp",
+		"E:/document/研二/demura/20200519-20200519_g32");
+	imwrite(result_file, pentile);
+}
+
 #include <algorithm>
 extern void draw_cross(Mat& img, int x, int y, Vec3b color);
 void generate_compensate_value(const char* img_file)
@@ -94,19 +137,21 @@ void generate_compensate_value(const char* img_file)
 	imwrite("./output/result_pentile_r.bmp", pentile_r);*/
 	int h = 2436, w = 752 / 2 * 3;
 	Mat img = /*imread(img_file)*/Mat(Size(w, h), CV_8UC3), pentile;
-	vector<int> value{ 4,8,12,16,20,24,28,32,64 }, //{ 16, 32, 48, 64, 96, 128, 160, 192, 224, 250 },
+	vector<int> value{ 16,20,24,28,32,36,40,44,48 },
+		//{ 4,8,12,16,20,24,28,32,64 }, 
+		//{ 16, 32, 48, 64, 96, 128, 160, 192, 224, 250 },
 		//({ 4,8,12,16,20,24,28,32 }), //({ 12,16,19,22,25,29,32 }),
-		cross_value{ 32,32,32,32,32,32,16,16,16 };
+		cross_value{ 48,48,48,48,48,48,48,16,16 };
 	//{ 16 * 2, 32 * 2, 48 * 2, 64 * 2, 96 * 2, 255, 160 / 2, 192 / 2, 224 / 2, 250 / 2 };
 	//{ 32,32,32,32,32,32,32,16 };
-	vector<int> need_x({ 60,1060 }), need_y({ 130, h - 130 });
+	vector<int> need_x({ 60,1060 }), need_y({ 130/*+1*/, h - 130 /*+ 1*/ });
 	for (int v = 0; v < value.size(); v++)
 	{
 		for (int y = 0; y < img.rows; y++)
 		{
 			for (int x = 0; x < img.cols; x++)
 			{
-				img.at<Vec3b>(y, x)[0] = value[v];
+				img.at<Vec3b>(y, x)[2] = value[v];
 			}
 		}
 
@@ -114,14 +159,14 @@ void generate_compensate_value(const char* img_file)
 		{
 			for (auto x : need_x)
 			{
-				draw_cross(img, x, y, Vec3b(cross_value[v], 0, 0));
+				draw_cross(img, x, y, Vec3b(0, 0, cross_value[v]));
 			}
 		}
 		char path[MAX_PATH];
-		sprintf_s(path, "./output/b_%d.bmp", value[v]);
+		sprintf_s(path, "./output/r_%d.bmp", value[v]);
 		imwrite(path, img);
 		rgb2pentile(img, pentile);
-		sprintf_s(path, "./output/pentile_b_%d.bmp", value[v]);
+		sprintf_s(path, "./output/pentile_r_%d.bmp", value[v]);
 		imwrite(path, pentile);
 	}
 	/*for (auto y : need_y)
@@ -312,7 +357,7 @@ void validtation_batch(const char* input_origin, const char* input_compute,
 	const char* output_file, const int offset = 0, const int scale = 0)
 {
 	_mkdir(output_file);
-	//cout << argv[3] << endl;
+	cout << output_file << endl;
 	std::vector<cv::String> filenames1, filenames2;
 	cv::String folder1 = input_origin, folder2 = input_compute;
 	folder1 += "/*.bmp";
@@ -328,7 +373,8 @@ void validtation_batch(const char* input_origin, const char* input_compute,
 	for (size_t i = 0; i < filenames1.size(); ++i)
 	{
 		out << filenames1[i] << endl << filenames2[i] << endl << endl;
-		string tmp = output_file + filenames1[i].substr(filenames1[i].find_last_of("\\"));
+		string tmp = output_file + filenames1[i].substr(filenames1[i].find_last_of("/"));
+		cout << tmp << endl;
 		//cout << tmp << endl;
 		validation(filenames1[i].c_str(), filenames2[i].c_str(), tmp.c_str(), out, offset, scale);
 	}
@@ -573,22 +619,21 @@ void intensity_to_exr(const char* inpath, const char* outpath,
 // 读入一系列图片(如g4-g32)，根据这些图片，计算出亮度-mura值对应关系，然后反向输出平均值对应的mura值
 #define GEXPO_RANGE // 16_224 4_32
 void compute_demura_value_use_range(char* inpath, char* outpath, 
-	char* prefix, char* suffix, const vector<int>& ms)
+	char* prefix, char* suffix, const vector<vector<int>>& ms)
 {
 	//String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
 	//	outpath("E:/coding/gray_game/demura/output");
-	//String inpath("E:\\document\\研二\\demura\\20200407_9块屏\\output1"), // ("./input2.2_20200404"),
-	//	outpath("E:\\document\\研二\\demura\\20200409-9块屏结果\\output1"), 
+	//String inpath("E://document//研二//demura//20200407_9块屏//output1"), // ("./input2.2_20200404"),
+	//	outpath("E://document//研二//demura//20200409-9块屏结果//output1"), 
 	//	prefix("2号屏pentile_g_"),
 	//	postfix("-曝光时间750ms-增益3-施耐德镜头光圈5.7");
-	//String valid_path("E:\\document\\研二\\demura\\20200409-9块屏结果\\output1"); 
+	//String valid_path("E://document//研二//demura//20200409-9块屏结果//output1"); 
 	// ("./input2.2_20200404");
 	
 	cout << "inpath [argv1]" << inpath << endl
 		<< "outpath [argv2]" << outpath << endl
 		<< "prefix [argv3]" << prefix << endl
 		<< "suffix [argv4]" << suffix << endl;
-	_mkdir(outpath);
 	int pentile_width = 752, pentile_height = 2436;
 	int target_g_id;
 	// 处理输入文件名字
@@ -597,67 +642,84 @@ void compute_demura_value_use_range(char* inpath, char* outpath,
 		mask_file[MAX_PATH], cross_file[MAX_PATH],
 		output_csv[MAX_PATH];
 	
-	/// 1
-	vector<int> capture_pentile_g_value({ 4,8,12,16,20,24,28,32 });
-	//const vector<int> ms{ 2000,2000,1800,750,1200,800,600,500 };
-	target_g_id = 3;
-	sprintf_s(b_file, "%s/%s%02d%s%04d.bmp", inpath, prefix,
-		capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
-	sprintf_s(g_file, "%s/%s%02d%s%04d.bmp", inpath, prefix,
-		capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
-	sprintf_s(r_file, "%s/%s%02d%s%04d.bmp", inpath, prefix,
-		capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
-	cout << g_file << endl;
-	for (int i = 0; i < capture_pentile_g_value.size(); i++)
-	{
-		sprintf_s(range_file[i], "%s/%s%02d%s%04d.bmp", inpath, prefix,
-			capture_pentile_g_value[i], suffix, ms[i]);
-	}
-
-	// mask
-	sprintf_s(mask_file, "%s/mask.png", inpath);
-	Mat mask = imread(mask_file, CV_8UC1);
-	const RGB b = BLUE, g = GREEN, r = RED;
-	vector<Mat> rgb;
-	Mat bb = imread(b_file), gg = imread(g_file), rr = imread(r_file);
-	rgb.push_back(bb);
-	rgb.push_back(gg);
-	rgb.push_back(rr);
-	if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
-	{
-		cout << "file read error" << endl << b_file << endl
-			<< "or " << g_file << endl
-			<< "or " << r_file << endl;
-	}
-	if (mask.data == nullptr)
-		preprocess(rgb, 0, mask_file, mask);
-	sprintf_s(output_csv, "%s/pentile_rgb_relationship.csv", outpath);
-
 	cout << "--------------------" << endl;
+	vector<int> capture_pentile_g_value{ 16,20,24,28,32,36,40,44,48 };
+	//({ 4,8,12,16,20,24,28,32 });
 	vector<vector<Point>> centers_error(3);
 	vector<vector<vector<LED_info>>> relationship(3);
 	{
-		RGB select_rgb = BLUE;
-		if (find_OLED_location_with_rgb_combination(rgb, mask,
-			outpath, pentile_height, relationship))
+		_mkdir(outpath);
+		//RGB select_rgb = BLUE;
 		{
-			cout << "something error!" << endl;
-			return ;
-		}
-		cout << "--------------------" << endl;
-		// to test 4,8,11,16,23,32,64 value
-		vector<Mat> pic;
-		{
-			for (int i = 0; i < capture_pentile_g_value.size(); i++)
+			/// 1
+			target_g_id = 4;
+			/*sprintf_s(b_file, "%s/B/%s%02d%s%04d.bmp", inpath, prefix,
+				capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
+			sprintf_s(g_file, "%s/G/%s%02d%s%04d.bmp", inpath, prefix,
+				capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);
+			sprintf_s(r_file, "%s/R/%s%02d%s%04d.bmp", inpath, prefix,
+				capture_pentile_g_value[target_g_id], suffix, ms[target_g_id]);*/
+			sprintf_s(b_file, "%s/b_%s%02d%s%04d.bmp", inpath, prefix,
+				capture_pentile_g_value[target_g_id], suffix, ms[0][target_g_id]);
+			sprintf_s(g_file, "%s/g_%s%02d%s%04d.bmp", inpath, prefix,
+				capture_pentile_g_value[target_g_id], suffix, ms[1][target_g_id]);
+			sprintf_s(r_file, "%s/r_%s%02d%s%04d.bmp", inpath, prefix,
+				capture_pentile_g_value[target_g_id], suffix, ms[2][target_g_id]);
+			cout << g_file << endl;
+			// mask
+			sprintf_s(mask_file, "%s/mask.png", inpath);
+			Mat mask = imread(mask_file, CV_8UC1);
+			const RGB b = BLUE, g = GREEN, r = RED;
+			vector<Mat> rgb;
+			Mat bb = imread(b_file), gg = imread(g_file), rr = imread(r_file);
+			rgb.push_back(bb);
+			rgb.push_back(gg);
+			rgb.push_back(rr);
+			if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
 			{
-				Mat tmp = imread(range_file[i]);
-				if (tmp.data == NULL)
+				cout << "file read error" << endl << b_file << endl
+					<< "or " << g_file << endl
+					<< "or " << r_file << endl;
+			}
+			if (mask.data == nullptr)
+				preprocess(rgb, 0, mask_file, mask);
+			sprintf_s(output_csv, "%s/pentile_rgb_relationship.csv", outpath);
+			if (find_OLED_location_with_rgb_combination(rgb, mask,
+				outpath, pentile_height, relationship))
+			{
+				cout << "something error!" << endl;
+				return;
+			}
+			cout << "--------------------" << endl;
+			//return ;
+		}
+		// to test 4,8,11,16,23,32,64 value
+		vector<vector<Mat>> pic(3);
+		{
+			for(int select_rgb =0; select_rgb <3; select_rgb++)
+			//int select_rgb = 1;
+			{
+				for (int i = 0; i < capture_pentile_g_value.size(); i++)
 				{
-					cout << range_file[i] << "read error." << endl;
-					return ;
+					/*sprintf_s(range_file[i], "%s/%s/%s%02d%s%04d.bmp", inpath,
+						select_rgb == 0 ? "B" : (select_rgb == 1 ? "G" : "R"),
+						prefix,
+						capture_pentile_g_value[i], suffix, ms[i]);*/
+					sprintf_s(range_file[i], "%s/%s_%s%02d%s%04d.bmp", inpath,
+						select_rgb == 0 ? "b" : (select_rgb == 1 ? "g" : "r"),
+						prefix, capture_pentile_g_value[i], suffix, ms[select_rgb][i]);
 				}
-				pic.push_back(tmp);
-				cvtColor(*pic.rbegin(), *pic.rbegin(), COLOR_BGR2GRAY);
+				for (int i = 0; i < capture_pentile_g_value.size(); i++)
+				{
+					Mat tmp = imread(range_file[i]);
+					if (tmp.data == NULL)
+					{
+						cout << range_file[i] << " read error." << endl;
+						return;
+					}
+					pic[select_rgb].push_back(tmp);
+					cvtColor(*pic[select_rgb].rbegin(), *pic[select_rgb].rbegin(), COLOR_BGR2GRAY);
+				}
 			}
 		}
 		compute_dumura(relationship, capture_pentile_g_value, ms,
@@ -715,6 +777,192 @@ void compute_single_validation(char* inpath, char* outpath, char* prefix, char* 
 	return ;
 }
 
+void split(const string& s, const string& d, vector<double>& v)
+{
+	string::size_type pos1, pos2;
+	pos2 = s.find(d);
+	pos1 = 0;
+	while (string::npos != pos2)
+	{
+		if (pos2 - pos1 > 0)
+			v.push_back(stod(s.substr(pos1, pos2 - pos1)));
+		pos1 = pos2 + d.size();
+		pos2 = s.find(d, pos1);
+	}
+	if (pos1 != s.length())
+		v.push_back(stod(s.substr(pos1)));
+}
+
+void generate_four_compare()
+{
+	string path = "F:/demura_data/重复性试验/一号屏/sample64_0.95_";
+	vector<string> files(4);
+	files[0] = path+"不关屏_第一轮/valid_gaussian_val.txt";
+	files[1] = path+"不关屏_第二轮/valid_gaussian_val.txt";
+	files[2] = path+"关屏并重启屏_第一轮/valid_gaussian_val.txt";
+	files[3] = path+"关屏并重启屏_第二轮/valid_gaussian_val.txt";
+	map<pair<int, int>, vector<double>> val;
+	vector<double> tmp_val;
+	string line;
+	for (int i = 0; i < files.size(); i++)
+	{
+		ifstream in(files[i]); //"./output/1.csv"
+		if (!in)
+			cout << "open error " << files[i] << endl;
+		getline(in, line);
+		while (getline(in, line))
+		{
+			tmp_val.clear();
+			split(line, ",", tmp_val);
+			/*if (tmp_val.back() != -1)
+				val[{tmp_val[2], tmp_val[3]}].push_back(tmp_val[4]);
+			else
+				val[{tmp_val[2], tmp_val[3]}].push_back(-1);*/
+			if (val.find({ tmp_val[2], tmp_val[3] }) != val.end())
+			{
+				val[{(int)tmp_val[2], (int)tmp_val[3]}][i] = tmp_val[4];
+			}
+			else
+			{
+				val[{(int)tmp_val[2], (int)tmp_val[3]}] = vector<double>(4, 0);
+				val[{(int)tmp_val[2], (int)tmp_val[3]}][i] = tmp_val[4];
+			}
+		}
+		in.close();
+	}
+	cout << val.size() << endl;
+	cout << "read txt end." << endl;
+
+	vector<Mat> img(8);
+	img[0] = imread(path + "不关屏_第一轮/origin.bmp");
+	img[1] = imread(path + "不关屏_第二轮/origin.bmp");
+	img[2] = imread(path + "关屏并重启屏_第一轮/origin.bmp");
+	img[3] = imread(path + "关屏并重启屏_第二轮/origin.bmp");
+	img[4] = imread(path + "不关屏_第一轮/kernel.bmp");
+	img[5] = imread(path + "不关屏_第二轮/kernel.bmp");
+	img[6] = imread(path + "关屏并重启屏_第一轮/kernel.bmp");
+	img[7] = imread(path + "关屏并重启屏_第二轮/kernel.bmp");
+	cout << "read image end" << endl;
+	//int x, y;
+	vector<vector<int>> xy_vec{
+		{ 1363, 6556 },
+		{ 10385,2633 },
+		{ 10386,2633 },
+		{ 1367, 6543 },
+		{ 1368, 6543 },
+		{ 10423,6176 },
+		{ 10423,6177 }
+	};
+	//while (1)
+	Mat result(Size(100, 100), CV_8UC3, Scalar(255, 255, 255));
+	int r = 1, c;
+	const vector<int> dx({ -1,0,1 });
+	for (auto xy : xy_vec)
+	{
+		int x = xy[0], y = xy[1];
+		for (int id = 0; id < 4; id++)
+		{
+			c = id * 5 + 2;
+			for (int i = 0; i < dx.size(); i++)
+			{
+				for (int j = 0; j < dx.size(); j++)
+				{
+					result.at<Vec3b>(r + dx[i], c + dx[j]) = img[id].at<Vec3b>(y + dx[i], x + dx[j]);
+				}
+			}
+		}
+		r += 5;
+		for (int id = 0; id < 4; id++)
+		{
+			c = id * 5 + 2;
+			for (int i = 0; i < dx.size(); i++)
+			{
+				for (int j = 0; j < dx.size(); j++)
+				{
+					result.at<Vec3b>(r + dx[i], c + dx[j]) = img[id + 4].at<Vec3b>(y + dx[i], x + dx[j]);
+				}
+			}
+		}
+		r += 5;
+	}
+	imwrite("F:/demura_data/重复性试验/一号屏/sample64_0.95_0512.png", result);
+	ofstream out("F:/demura_data/重复性试验/一号屏/sample64_0.95_0512.txt");
+	for (auto file : files)
+		out << file << endl;
+	for (auto xy : xy_vec)
+	{
+		int x = xy[0], y = xy[1];
+		//cout << "input xy: " << endl;
+		//cin >> x >> y;
+		vector<int> sum(4, 0);
+		for (int yy = y - 1; yy <= y + 1; yy++)
+		{
+			for (int i = 0; i < 4; i++)
+			{
+				out.width(4);
+				out << (int)img[i].at<Vec3b>(yy, x - 1)[0];
+				out.width(4);
+				out << (int)img[i].at<Vec3b>(yy, x)[0];
+				out.width(4);
+				out << (int)img[i].at<Vec3b>(yy, x + 1)[0] << "    ";
+				sum[i] += (int)img[i].at<Vec3b>(yy, x - 1)[0] +
+					(int)img[i].at<Vec3b>(yy, x)[0] + (int)img[i].at<Vec3b>(yy, x + 1)[0];
+			}
+			out << endl;
+		}
+		for (auto s : sum)
+			out << s << " ";
+		out << endl;
+
+		vector<int> sum2(4, 0);
+		for (int yy = y - 1; yy <= y + 1; yy++)
+		{
+			for (int i = 4; i < 8; i++)
+			{
+				out.width(4);
+				out << (int)img[i].at<Vec3b>(yy, x - 1)[0];
+				out.width(4);
+				out << (int)img[i].at<Vec3b>(yy, x)[0];
+				out.width(4);
+				out << (int)img[i].at<Vec3b>(yy, x + 1)[0] << "    ";
+				sum2[i - 4] += (int)img[i].at<Vec3b>(yy, x - 1)[0] +
+					(int)img[i].at<Vec3b>(yy, x)[0] + (int)img[i].at<Vec3b>(yy, x + 1)[0];
+			}
+			out << endl;
+		}
+		for (auto s : sum2)
+			out << s << " ";
+		out << endl;
+
+		auto intensity = val.find({ x, y });
+		if (intensity != val.end())
+		{
+			double average = 0;
+			out << "scale: "; 
+			for (auto v : intensity->second)
+			{
+				out << v << " ";
+				average += v;
+				cout << v << " ";
+			}
+			out << endl;
+			cout << endl;
+			average /= 4;
+			double stdev_average = 0;
+			for (auto v : intensity->second)
+			{
+				stdev_average += (v - average)*(v - average);
+			}
+			stdev_average = sqrt(stdev_average / 4) / average;
+			out << stdev_average << endl;
+			cout << stdev_average << " ";
+		}
+		else
+			out << "no center." << endl;
+	}
+	out.close();
+}
+
 //#define VALIDATION
 int main(int argc, char* argv[])
 {
@@ -749,7 +997,7 @@ int main(int argc, char* argv[])
 	//for (size_t i = 0; i < filenames.size(); ++i)
 	//{
 	//	out << filenames[i] << endl << argv[5] << endl << endl;
-	//	string tmp = argv[2] + filenames[i].substr(filenames[i].find_last_of("\\"));
+	//	string tmp = argv[2] + filenames[i].substr(filenames[i].find_last_of("//"));
 	//	//cout << tmp << endl;
 	//	validation(filenames[i].c_str(), argv[5], tmp.c_str(), out,
 	//		atoi(argv[3]), atoi(argv[4]));
@@ -801,24 +1049,147 @@ int main(int argc, char* argv[])
 	cout << "end." << endl;
 	return 0;*/
 
-	if (argv[1][0] == 'a')
-		intensity_to_exr(argv[2], argv[3], argv[4], argv[5]);
-	else if (argv[1][0] == 'b')
+	/*Mat image = imread("E:/document/研二/demura/20200429/result/rgb_result_rotate_90_2.bmp"),
+		green = imread("E:/document/研二/demura/20200429/result/sigma0.62_id1_expo750_result.bmp"),
+		pentile;
+	char out_path[MAX_PATH];
+	for (int y = 0; y < image.rows; y++)
 	{
-		vector<int> ms{ 2000,2000,1800,750,1200,800,600,500 };
-		if (argc == 5 + 8)
+		for (int x = 0; x < image.cols; x++)
 		{
-			for (int i = 1; i <= 8; i++)
+			image.at<Vec3b>(y, x)[1] = green.at<Vec3b>(y, x)[1];
+		}
+	}
+	sprintf_s(out_path, "E:/document/研二/demura/20200429/result/add_green.bmp");
+	imwrite(out_path, image);
+	sprintf_s(out_path, "E:/document/研二/demura/20200429/result/add_green_pentile.bmp");
+	rgb2pentile(image, pentile);
+	imwrite(out_path, pentile);
+	return 0;*/
+
+	/*Mat image = imread(argv[1]), out(image.size(), image.type());
+	char out_path[MAX_PATH];
+	int cnt[3] = { 0,0,0 };
+	for (int y = 0; y < image.rows; y++)
+	{
+		for (int x = 0; x < image.cols; x++)
+		{
+			if (image.at<Vec3b>(y, x)[0] == 255)
 			{
-				ms[i] = atoi(argv[i + 5]);
+				cnt[0]++;
+				out.at<Vec3b>(y, x)[0] = 255;
+			}
+			if (image.at<Vec3b>(y, x)[1] == 255)
+			{
+				cnt[1]++;
+				out.at<Vec3b>(y, x)[1] = 255;
+			}
+			if (image.at<Vec3b>(y, x)[2] == 255)
+			{
+				cnt[2]++;
+				out.at<Vec3b>(y, x)[2] = 255;
 			}
 		}
+	}
+	cout << cnt[0] << " " << cnt[1] << " " << cnt[2] << endl;
+	sprintf_s(out_path, "./output/test.png");
+	imwrite(out_path, out);
+	return 0;*/
+	/*Mat image = imread("E:/document/研二/demura/20200429/result/add_green.bmp"),
+		pentile;
+	char out_path[MAX_PATH];
+	for (int rgb = 0; rgb < 3; rgb++)
+	{
+		Mat result = Mat(image.size(), CV_8UC3);
+		for (int y = 0; y < image.rows; y++)
+		{
+			for (int x = 0; x < image.cols; x++)
+			{
+				result.at<Vec3b>(y, x)[rgb] = image.at<Vec3b>(y, x)[rgb];
+			}
+		}
+		sprintf_s(out_path, "E:/document/研二/demura/20200429/result/%d.bmp", rgb);
+		imwrite(out_path, result);
+		sprintf_s(out_path, "E:/document/研二/demura/20200429/result/%d_pentile.bmp", rgb);
+		rgb2pentile(result, pentile);
+		imwrite(out_path, pentile);
+	}
+	return 0;*/
+
+	/*char path[MAX_PATH], file[MAX_PATH];
+	sprintf(path, "E:/document/研二/demura/20200430scaled验证/result_");
+	vector<float> scale{0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2};
+	map<pair<int, int>, vector<int>> val;
+	vector<int> tmp_val;
+	string line;
+	for (int i = 0; i < 9; i++)
+	{
+		sprintf(file, "%s%.2f/%s", path, scale[i], "valid_gaussian_val.csv");
+		ifstream in(file); //"./output/1.csv"
+		if (!in)
+			cout << "open error " << file << endl;
+		getline(in, line);
+		cout << file << line << endl;
+		while (getline(in, line))
+		{
+			tmp_val.clear();
+			split(line, ",", tmp_val);
+			if (tmp_val.back() != -1)
+				val[{tmp_val[0], tmp_val[1]}].push_back(tmp_val[4]);
+		}
+		in.close();
+	}
+	cout << val.size() << endl;
+	int cnt = 0;
+	for (auto mv : val)
+	{
+		cnt++;
+		if (mv.first.first % 100 == 0 && mv.first.second % 100 == 0)
+		{
+			cout << mv.first.first << "," << mv.first.second << ",";
+			for (auto m : mv.second)
+				cout << m << ", ";
+			cout << endl;
+		}
+	}
+	return 0;*/
+	
+	//generate_four_compare();
+	//split_rgb();
+	//system("pause");
+	//return 0;
+
+	if (argv[1][0] == 'a')
+	{
+		cout << "mode a" << endl;
+		intensity_to_exr(argv[2], argv[3], argv[4], argv[5]);
+	}
+	else if (argv[1][0] == 'b')
+	{
+		cout << "mode b" << endl;
+		//vector<int> ms{ 2000,2000,1800,750,1200,800,600,500 };
+		vector<vector<int>> ms{ { 600,600,600,600,600,600,600,600,600 },
+		{ 400,400,400,400,400,400,400,400,400 } ,
+		{ 380,380,380,380,380,380,380,380,380 } };
+		/*if (argc == 6 + 8)
+		{
+			for (int i = 0; i <= 7; i++)
+			{
+				ms[i] = atoi(argv[i + 6]);
+			}
+		}*/
 		compute_demura_value_use_range(argv[2], argv[3], argv[4], argv[5], ms);
 	}
 	else if (argv[1][0] == 'c')
+	{
+		cout << "mode c" << endl;
 		compute_single_validation(argv[2], argv[3], argv[4], argv[5]);
+	}
 	else if (argv[1][0] == 'd')
+	{
+		cout << "mode d" << endl;
 		validtation_batch(argv[2], argv[3], argv[4], atoi(argv[5]), atoi(argv[6]));
+	}
 	return 0;
 }
 

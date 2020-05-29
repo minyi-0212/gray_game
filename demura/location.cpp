@@ -110,7 +110,7 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 		{
 			update(image, p1);
 			relation.push_back({ p1, Point(x, y--) , LINE_ONE });
-			//img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
+			img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
 			p1.y -= region_size;
 			p1.x = (p1.y - b) / k;
 		}
@@ -123,7 +123,7 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 		{
 			update(image, p1);
 			relation.push_back({ p1, Point(x, y++) , LINE_ONE });
-			//img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
+			img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
 			p1.y += region_size;
 			p1.x = (p1.y - b) / k;
 		}
@@ -138,13 +138,13 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 		{
 			y -= 2;
 			update(image, p1);
-			//img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
+			img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
 			p2.x = p1.x + region_size;
 			p2.y = p1.y + region_size;
 			update(image, p2);
 			relation.push_back({ p2, Point(x + 1, y + 1), LINE_ONE });
 			relation.push_back({ p1, Point(x, y), LINE_ONE });
-			//img_copy.at<Vec3b>(p2.y, p2.x) = Vec3b(0, 255, 0);
+			img_copy.at<Vec3b>(p2.y, p2.x) = Vec3b(0, 255, 0);
 			p1.y -= interval;
 			p1.x = (p1.y - b) / k;
 		}
@@ -164,12 +164,12 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 		{
 			update(image, p1);
 			relation.push_back({ p1, Point(x, y++), LINE_ONE });
-			//img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
+			img_copy.at<Vec3b>(p1.y, p1.x) = Vec3b(0, 255, 255);
 			p2.x = p1.x + region_size;
 			p2.y = p1.y + region_size;
 			update(image, p2);
 			relation.push_back({ p2, Point(x + 1, y++) , LINE_ONE });
-			//img_copy.at<Vec3b>(p2.y, p2.x) = Vec3b(0, 255, 0);
+			img_copy.at<Vec3b>(p2.y, p2.x) = Vec3b(0, 255, 0);
 			p1.y += interval;
 			p1.x = (p1.y - b) / k;
 		}
@@ -179,7 +179,8 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 	/*cout << endl << "each line:" << endl;
 	for (auto p : relation)
 		cout <<p.pixel<<"->"<< p.locate << endl;*/
-	//imwrite("./output/tmp.png", img_copy);
+	//if(is_green)
+		imwrite("./output/tmp.png", img_copy);
 }
 
 vector<int> locate_interval({ 2,1,2 });
@@ -219,15 +220,6 @@ void find_point_in_region(const Mat& image, const Mat& mask,
 {
 	//cout << lor * interval_x;
 	Point cur, last, start;
-	/*int s = 0;
-	while (s < OLED_pick_region && start_p[s].x == -1)
-	{
-		s++;
-	}
-	if (s == OLED_pick_region)
-		return;
-	start = start_p[s];
-	start.y -= s * interval_y;*/
 	start = start_p[0];
 	vector<pair<Point, int>> vote_result;
 	//cout << start << " ";
@@ -263,42 +255,19 @@ void find_point_in_region(const Mat& image, const Mat& mask,
 					start = cur;
 				//if (cur.x == 9913 && cur.y == 3123)
 					//cout << index << endl;
-				centers_vec[index + y].push_back({ cur, locate[y],/* (x == 0) ? FIRST :*/ VALID });
-				vote(vote_result, cur.x + lor * (OLED_pick_region - x)*interval_x, cur.y - y*interval_y);
+				centers_vec[index + y].push_back({ cur, locate[y], /*(x == 0) ? FIRST :*/ VALID });
+				if (is_green)
+					vote(vote_result,
+						cur.x + lor * (OLED_pick_region - x)*interval_x,
+						cur.y - y * interval_y);
+				else
+					vote(vote_result,
+						cur.x + lor * (OLED_pick_region - x)*interval_x - y % 2 * interval_x / 2,
+						cur.y - y * interval_y);
 			}
 			points_set.insert({ cur.x, cur.y });
 			locate[y].x += lor * locate_interval;
 		}
-		//int p = centers_vec[index + y].size()-1;
-		//start_p[y] = cur;
-		//start_p[y].x += lor * interval_x;
-		//int x = 0;
-		//for (; x < OLED_pick_region; x++)
-		//{
-		//	if (centers_vec[index + y][p - x].state == VALID)
-		//	{
-		//		start_p[y] = centers_vec[index + y][p - x].pixel;
-		//		start_p[y].x += lor * interval_x * (x + 1);
-		//		//cout << centers_vec[index + y][p - x].pixel << "," << start_p[y] << "--";
-		//		break;
-		//	}
-		//}
-		//if (x == OLED_pick_region)
-		//{
-		//	start_p[y] = { -1, -1 };
-		//	if (y == 0) 
-		//	{
-		//		int ss = 0;
-		//		while (ss < OLED_pick_region &&start_p[ss].x == -1)
-		//		{
-		//			ss++;
-		//		}
-		//		if (ss == OLED_pick_region)
-		//			return;
-		//		start = start_p[ss];
-		//		start.y -= ss * interval_y;
-		//	}
-		//}
 	}
 	
 	if (vote_result.size())
@@ -306,9 +275,6 @@ void find_point_in_region(const Mat& image, const Mat& mask,
 		sort(vote_result.begin(), vote_result.end(), [](const pair<Point, int>& a, const pair<Point, int>& b) {
 			return a.second > b.second;
 		});
-		/*for (auto v : vote_result)
-			cout << v.first << ":" << v.second << "  ";
-		cout << endl;*/
 		start_p[0] = vote_result[0].first;
 		for (int y = 1; y < OLED_pick_region && index + y < centers_vec.size(); y++)
 		{
@@ -465,8 +431,8 @@ void find_cross(const Mat& img, const Mat& mask,
 {
 	/*const double upscale = 0.6, low_scale = 0.8;
 	const int cross_low_limit = 150, select_range = 600;*/
-	const double upscale = 0.8, low_scale = 0.9;
-	const int cross_low_limit = 250, select_range = 600;
+	const double upscale = 0.6, low_scale = 0.6;
+	const int cross_low_limit = 90, select_range = 600;
 	const double select_interval = 9;
 	Mat cross = img.clone(), tmp = cross.clone();
 	cvtColor(cross, cross, COLOR_BGR2GRAY);
@@ -490,10 +456,11 @@ void find_cross(const Mat& img, const Mat& mask,
 					cross_value = cross.at<byte>(y, x);
 					p_tmp.x = x;
 					p_tmp.y = y;
-					/*if (p_tmp.x == 1107 && p_tmp.y == 2217)
+					/*if (p_tmp.x == 10671 && p_tmp.y == 6623)
 						cout << is_error(cross, p_tmp) << " "
 						<< (cross.at<byte>(y, x) > cross_low_limit) << " "
 						<< (get_pixel(cross, y + select_interval, x) > cross_value* upscale) << " "
+						<< get_pixel(cross, y + select_interval, x)<<" "<< cross_value* upscale << " "
 						<< (get_pixel(cross, y, x + select_interval) > cross_value* upscale) << " "
 						<< (get_pixel(cross, y - select_interval, x) > cross_value* upscale) << " "
 						<< (get_pixel(cross, y, x - select_interval) > cross_value* upscale) << " "
@@ -556,7 +523,8 @@ void find_cross(const Mat& img, const Mat& mask,
 				circle(tmp, cp, 2, Scalar(0, 255, 0), 2);
 		}
 		char out_cross[MAX_PATH];
-		sprintf(out_cross, "%s/find_cross.png", output_prefix);
+		sprintf(out_cross, "%s/find_cross_%s.png", output_prefix,
+			select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		imwrite(out_cross, tmp);
 	}
 }
@@ -567,11 +535,21 @@ int find_OLED_location_with_rgb_combination(
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec)
 {
 	vector<vector<LED_info>> cross_points(3);
-	//for (int select_rgb = 0; select_rgb < rgb_image.size(); select_rgb++)
-	int select_rgb = 1;
+	for (int select_rgb = 0; select_rgb < rgb_image.size(); select_rgb++)
+	//int select_rgb = 0;
 	{
+		cout << "--------------------" << endl;
+		cout << "locate " << (select_rgb == RED ? "red" : (select_rgb == BLUE ? "blue" : "green")) << endl;
 		// find cross
 		{
+			if (select_rgb == 2)
+			{
+				cross_points[select_rgb].push_back({ Point(1021, 2151), Point(128, 60), CROSS });
+				cross_points[select_rgb].push_back({ Point(-1, -1), Point(2304, 60), CROSS });
+				cross_points[select_rgb].push_back({ Point(1010, 6594), Point(129, 1060), CROSS });
+				cross_points[select_rgb].push_back({ Point(-1, -1), Point(2304, 1060), CROSS });
+			}
+			else
 			find_cross(rgb_image[select_rgb], mask, output_prefix, pentile_width,
 				(RGB)select_rgb, cross_points[select_rgb]);
 			/*cross_points[select_rgb].push_back({ Point(1027, 2217), Point(129, 60), CROSS });
@@ -594,7 +572,6 @@ int find_OLED_location_with_rgb_combination(
 			}
 		}
 
-		cout << "locate " << (select_rgb == RED ? "red" : (select_rgb == BLUE ? "blue" : "green")) << endl;
 		char outfile_selected_point_name[MAX_PATH], outfile_set_3x3_region_name[MAX_PATH];
 		sprintf(outfile_selected_point_name, "%s/select_points_%s.png",
 			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
@@ -607,7 +584,8 @@ int find_OLED_location_with_rgb_combination(
 			cross_points[select_rgb], centers_vec[select_rgb], (RGB)select_rgb);
 
 		char csv_name[MAX_PATH];
-		sprintf(csv_name, "%s/origin.csv", output_prefix);
+		sprintf(csv_name, "%s/origin_%s.csv", output_prefix, 
+			select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		ofstream out(csv_name);
 		for (auto line : centers_vec[select_rgb])
 		{

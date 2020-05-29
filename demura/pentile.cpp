@@ -246,6 +246,14 @@ void draw_cross(Mat& img, int x, int y, Vec3b color)
 		img.at<Vec3b>(y + cross_range[yi], x) = color;
 }
 
+void draw_cross(Mat& img, int x, int y, int val, int i)
+{
+	for (int xi = 0; xi < cross_range.size(); xi++)
+		img.at<Vec3b>(y, x + cross_range[xi])[i] = val;
+	for (int yi = 0; yi < cross_range.size(); yi++)
+		img.at<Vec3b>(y + cross_range[yi], x)[i] = val;
+}
+
 void draw_pattern2(const char* prefix, int penw, int penh)
 {
 	//void gen_test_image(std::vector<BYTE> &img, int &w, int &h)
