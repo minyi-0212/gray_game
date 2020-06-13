@@ -9,9 +9,9 @@ void preprocess(vector<Mat>& rgb,
 	int low_limit, const char *outfile, Mat& mask)
 {
 	const int ks = 5, sigma = 2, /*low_limit = 255 / 100,*/ erode_ks = 7;
-	Mat img_b = rgb[BLUE].clone()*100,
-		img_g = rgb[GREEN].clone()*100,
-		img_r = rgb[RED].clone()*100;
+	Mat img_b = rgb[BLUE].clone()*255,
+		img_g = rgb[GREEN].clone()*255,
+		img_r = rgb[RED].clone()*255;
 	cvtColor(img_b, img_b, CV_BGR2GRAY);
 	cvtColor(img_g, img_g, CV_BGR2GRAY);
 	cvtColor(img_r, img_r, CV_BGR2GRAY);
@@ -37,7 +37,8 @@ void preprocess(vector<Mat>& rgb,
 		}
 	}
 	Mat element = getStructuringElement(MORPH_RECT, Size(erode_ks, erode_ks));
-	erode(mask, mask, element);
+	//erode(mask, mask, element);
+	dilate(mask, mask, element);
 	//GaussianBlur(mask, mask, Size(5, 5), 2, 2);
 	cout << "[output mask]: " << outfile << endl;
 	imwrite(outfile, mask);

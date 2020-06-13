@@ -16,6 +16,9 @@ using cv::Size;
 using cv::Scalar;
 using namespace Eigen;
 
+const int kernel_size = 5, kernel_size_1d = kernel_size * kernel_size,
+	half_kernel_size = kernel_size / 2;
+const vector<int> region({-2,-1,0,1,2 });
 const int sample_of_center = 64, base = sample_of_center * sample_of_center;
 const double center_interval = 1.0 / sample_of_center;
 const int sample_of_guass_point = 64;
@@ -32,6 +35,18 @@ void output(const VectorXd& a)
 	cout << a[8] << "]" << endl;
 }
 
+void get_region(VectorXd& v, const Mat& img, const int x, const int y)
+{
+	int index = 0;
+	for (int y0 = -half_kernel_size; y0<= half_kernel_size; y0++)
+	{
+		for (int x0 = -half_kernel_size; x0 <= half_kernel_size; x0++)
+		{
+			v[index++] = img.at<byte>(y + y0, x + x0);
+		}
+	}
+}
+
 double gauss_value(const double x, const double y,
 	const double cx, const double cy, const double sigmax, const double sigmay)
 {
@@ -41,28 +56,98 @@ double gauss_value(const double x, const double y,
 		((x - cx)*(x - cx) / (2 * sigmax * sigmax) + (y - cy)*(y - cy) / (2 * sigmay * sigmay)));
 }
 
+//void compute_kernel(VectorXd& k,
+//	const double cx, const double cy,
+//	const double sigmax, const double sigmay)
+//{
+//	int cnt = 0;
+//	for (int ki = 0; ki < kernel_size_1d; ki++)
+//	{
+//		double v = 0;
+//		double x = ki % kernel_size, y = ki / kernel_size;
+//		for (double yi = point_interval / 2; yi < 1; yi += point_interval)
+//		{
+//			for (double xi = point_interval / 2; xi < 1; xi += point_interval)
+//			{
+//				if (xi > GAUSS_POINT_VALID_BEGIN && xi < GAUSS_POINT_VALID_END
+//					&& yi > GAUSS_POINT_VALID_BEGIN && yi < GAUSS_POINT_VALID_END)
+//				{
+//					v += gauss_value(x + xi, y + yi, cx, cy, sigmax, sigmay);
+//					cnt++;
+//				}
+//			}
+//		}
+//		k[ki] = v / cnt;
+//	}
+//}
+//
+//void rotate_xy(double& x, double& y, const double rx, const double ry, const double theta)
+//{
+//	double c = cos(theta*PI / 180), s = sin(theta*PI / 180),
+//		xx = x - rx, yy = y - ry;
+//	x = c * xx - s * yy + rx;
+//	y = s * xx + c * yy + ry;
+//}
+//
+//void compute_kernel(VectorXd& k,
+//	const double cx, const double cy,
+//	const double sigmax, const double sigmay,
+//	const double theta)
+//{
+//	int cnt = 0;
+//	for (int ki = 0; ki < kernel_size_1d; ki++)
+//	{
+//		double v = 0;
+//		double x = ki % kernel_size, y = ki / kernel_size, rotate_x, rotate_y;
+//		for (double yi = point_interval / 2; yi < 1; yi += point_interval)
+//		{
+//			for (double xi = point_interval / 2; xi < 1; xi += point_interval)
+//			{
+//				if (xi > GAUSS_POINT_VALID_BEGIN && xi< GAUSS_POINT_VALID_END
+//					&& yi > GAUSS_POINT_VALID_BEGIN && yi < GAUSS_POINT_VALID_END)
+//				{
+//
+//					rotate_x = x + xi;
+//					rotate_y = y + yi;
+//					/*Vector2d tmp1, tmp2;
+//					tmp1 << rotate_x - cx, rotate_y - cy;
+//					cout << rotate_x << "," << rotate_y << "  "
+//						<< (rotate_x - cx)*(rotate_x - cx) + (rotate_y - cy)* (rotate_y - cy) << " -> ";*/
+//					rotate_xy(rotate_x, rotate_y, cx, cy, theta);
+//					/*tmp2 << rotate_x - cx, rotate_y - cy;
+//					cout << rotate_x << "," << rotate_y << "  "
+//						<< (rotate_x - cx)*(rotate_x - cx) + (rotate_y - cy)* (rotate_y - cy) << "  "
+//						<< endl;
+//					tmp1.normalize();
+//					tmp2.normalize();
+//					cout << tmp1.dot(tmp2) <<"," << cos(45*PI/180)<< endl;*/
+//					//v += gauss_value(x + xi, y + yi, cx, cy, sigmax, sigmay);
+//					v += gauss_value(rotate_x, rotate_y, cx, cy, sigmax, sigmay);
+//					cnt++;
+//				}
+//			}
+//		}
+//		//k[ki] = v / sample_of_guass_point / sample_of_guass_point;
+//		k[ki] = v / cnt;
+//	}
+//}
+
 void compute_kernel(VectorXd& k,
 	const double cx, const double cy,
 	const double sigmax, const double sigmay)
 {
-	int cnt = 0;
-	for (int ki = 0; ki < 9; ki++)
+	for (int ki = 0; ki < kernel_size_1d; ki++)
 	{
 		double v = 0;
-		double x = ki % 3, y = ki / 3;
+		double x = ki % kernel_size, y = ki / kernel_size;
 		for (double yi = point_interval / 2; yi < 1; yi += point_interval)
 		{
 			for (double xi = point_interval / 2; xi < 1; xi += point_interval)
 			{
-				if (xi > GAUSS_POINT_VALID_BEGIN && xi < GAUSS_POINT_VALID_END
-					&& yi > GAUSS_POINT_VALID_BEGIN && yi < GAUSS_POINT_VALID_END)
-				{
-					v += gauss_value(x + xi, y + yi, cx, cy, sigmax, sigmay);
-					cnt++;
-				}
+				v += gauss_value(x + xi, y + yi, cx, cy, sigmax, sigmay);
 			}
 		}
-		k[ki] = v / cnt;
+		k[ki] = v / sample_of_guass_point / sample_of_guass_point;
 	}
 }
 
@@ -79,47 +164,40 @@ void compute_kernel(VectorXd& k,
 	const double sigmax, const double sigmay,
 	const double theta)
 {
-	int cnt = 0;
-	for (int ki = 0; ki < 9; ki++)
+	for (int ki = 0; ki < kernel_size_1d; ki++)
 	{
 		double v = 0;
-		double x = ki % 3, y = ki / 3, rotate_x, rotate_y;
+		double x = ki % kernel_size, y = ki / kernel_size, rotate_x, rotate_y;
 		for (double yi = point_interval / 2; yi < 1; yi += point_interval)
 		{
 			for (double xi = point_interval / 2; xi < 1; xi += point_interval)
 			{
-				if (xi > GAUSS_POINT_VALID_BEGIN && xi< GAUSS_POINT_VALID_END
-					&& yi > GAUSS_POINT_VALID_BEGIN && yi < GAUSS_POINT_VALID_END)
-				{
-
-					rotate_x = x + xi;
-					rotate_y = y + yi;
-					/*Vector2d tmp1, tmp2;
-					tmp1 << rotate_x - cx, rotate_y - cy;
-					cout << rotate_x << "," << rotate_y << "  "
-						<< (rotate_x - cx)*(rotate_x - cx) + (rotate_y - cy)* (rotate_y - cy) << " -> ";*/
-					rotate_xy(rotate_x, rotate_y, cx, cy, theta);
-					/*tmp2 << rotate_x - cx, rotate_y - cy;
-					cout << rotate_x << "," << rotate_y << "  "
-						<< (rotate_x - cx)*(rotate_x - cx) + (rotate_y - cy)* (rotate_y - cy) << "  "
-						<< endl;
-					tmp1.normalize();
-					tmp2.normalize();
-					cout << tmp1.dot(tmp2) <<"," << cos(45*PI/180)<< endl;*/
-					//v += gauss_value(x + xi, y + yi, cx, cy, sigmax, sigmay);
-					v += gauss_value(rotate_x, rotate_y, cx, cy, sigmax, sigmay);
-					cnt++;
-				}
+				rotate_x = x + xi;
+				rotate_y = y + yi;
+				/*Vector2d tmp1, tmp2;
+				tmp1 << rotate_x - cx, rotate_y - cy;
+				cout << rotate_x << "," << rotate_y << "  "
+					<< (rotate_x - cx)*(rotate_x - cx) + (rotate_y - cy)* (rotate_y - cy) << " -> ";*/
+				rotate_xy(rotate_x, rotate_y, cx, cy, theta);
+				/*tmp2 << rotate_x - cx, rotate_y - cy;
+				cout << rotate_x << "," << rotate_y << "  "
+					<< (rotate_x - cx)*(rotate_x - cx) + (rotate_y - cy)* (rotate_y - cy) << "  "
+					<< endl;
+				tmp1.normalize();
+				tmp2.normalize();
+				cout << tmp1.dot(tmp2) <<"," << cos(45*PI/180)<< endl;*/
+				//v += gauss_value(x + xi, y + yi, cx, cy, sigmax, sigmay);
+				v += gauss_value(rotate_x, rotate_y, cx, cy, sigmax, sigmay);
 			}
 		}
-		//k[ki] = v / sample_of_guass_point / sample_of_guass_point;
-		k[ki] = v / cnt;
+		k[ki] = v / sample_of_guass_point / sample_of_guass_point;
 	}
 }
 
+
 void get_kernels(vector<VectorXd>& kernels, const double sigmax, const double sigmay)
 {
-	double cx_begin = 1, cy_begin = 1;
+	double cx_begin = 2, cy_begin = 2;
 	int index = 0;
 	if (sigmax == sigmay)
 	{
@@ -164,24 +242,25 @@ void get_kernels(vector<VectorXd>& kernels, const double sigmax, const double si
 void query_by_kdtree(vector<double>& kd_tree_data, const vector<VectorXd>& kernels,
 	flann::Matrix<int>& indices, flann::Matrix<double>& dists)
 {
-	vector<double> kd_tree_kernel(kernels.size() * 9, 0);
+	vector<double> kd_tree_kernel(kernels.size() * kernel_size_1d, 0);
 		//kd_tree_data;
 	for (int i = 0; i < kernels.size(); i++)
 	{
 		VectorXd tmp = kernels[i];
 		tmp.normalize();
-		for (int mi = 0; mi < 9; mi++)
-			kd_tree_kernel[i * 9 + mi] = tmp[mi];
+		for (int mi = 0; mi < kernel_size_1d; mi++)
+			kd_tree_kernel[i * kernel_size_1d + mi] = tmp[mi];
 	}
 	/*for (auto d : data)
 		for (auto dd : d)
 		{
 			dd.normalize();
-			for (int mi = 0; mi < 9; mi++)
+			for (int mi = 0; mi < kernel_size_1d; mi++)
 				kd_tree_data.push_back(dd[mi]);
 		}*/
-	flann::Matrix<double> points_mat = flann::Matrix<double>(&kd_tree_kernel[0], kernels.size(), 9);
-	flann::Matrix<double> query = flann::Matrix<double>(&kd_tree_data[0], kd_tree_data.size() / 9, 9);
+	flann::Matrix<double> points_mat = flann::Matrix<double>(&kd_tree_kernel[0], kernels.size(), kernel_size_1d);
+	flann::Matrix<double> query = flann::Matrix<double>(&kd_tree_data[0], 
+		kd_tree_data.size() / kernel_size_1d, kernel_size_1d);
 	int nns_number = 1;
 	//flann::Matrix<int> indices(new int[query.rows*nns_number], query.rows, nns_number);
 	//flann::Matrix<double> dists(new double[query.rows*nns_number], query.rows, nns_number);
@@ -205,11 +284,11 @@ void match_with_location(Mat& result,
 		flann::Matrix<int> indices;
 		flann::Matrix<double> dists;
 		vector<double> kd_tree_data;
-		VectorXd center_region(9);
+		VectorXd center_region(kernel_size_1d);
 		for (auto d : relationship)
 			for (auto dd : d)
 			{
-				center_region << pic[primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
+				/*center_region << pic[primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
 					pic[primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x),
 					pic[primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
 					pic[primary_pic].at<byte>(dd.pixel.y, dd.pixel.x - 1),
@@ -217,17 +296,19 @@ void match_with_location(Mat& result,
 					pic[primary_pic].at<byte>(dd.pixel.y, dd.pixel.x + 1),
 					pic[primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
 					pic[primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x),
-					pic[primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);
+					pic[primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);*/
+				get_region(center_region, pic[primary_pic], dd.pixel.x, dd.pixel.y);
 				center_region.normalize();
-				for (int mi = 0; mi < 9; mi++)
+				for (int mi = 0; mi < kernel_size_1d; mi++)
 					kd_tree_data.push_back(center_region[mi]);
 			}
 		query_by_kdtree(kd_tree_data, kernels, indices, dists);
 
 		vector<vector<double>> guassian_mul_value(pic.size(), vector<double>(indices.rows, 0));
 		set<int> index_set;
-		VectorXd ones(9);
-		ones << 1, 1, 1, 1, 1, 1, 1, 1, 1;
+		VectorXd ones(kernel_size_1d);
+		for (int i = 0; i < kernel_size_1d; i++)
+			ones[i] = 1;
 		int centers_id = 0;
 		Point cur;
 		for (int vj = 0; vj < relationship.size(); vj++)
@@ -241,7 +322,7 @@ void match_with_location(Mat& result,
 					for (int pici = 0; pici < pic.size(); pici++)
 					{
 						cur = relationship[vj][vi].pixel;
-						center_region << pic[pici].at<byte>(cur.y - 1, cur.x - 1),
+						/*center_region << pic[pici].at<byte>(cur.y - 1, cur.x - 1),
 							pic[pici].at<byte>(cur.y - 1, cur.x),
 							pic[pici].at<byte>(cur.y - 1, cur.x + 1),
 							pic[pici].at<byte>(cur.y, cur.x - 1),
@@ -249,7 +330,8 @@ void match_with_location(Mat& result,
 							pic[pici].at<byte>(cur.y, cur.x + 1),
 							pic[pici].at<byte>(cur.y + 1, cur.x - 1),
 							pic[pici].at<byte>(cur.y + 1, cur.x),
-							pic[pici].at<byte>(cur.y + 1, cur.x + 1);
+							pic[pici].at<byte>(cur.y + 1, cur.x + 1);*/
+						get_region(center_region, pic[pici], cur.x, cur.y);
 						if (center_region.sum() < 0.00001)
 							guassian_mul_value[pici][centers_id] = 0;
 						else
@@ -489,15 +571,16 @@ double compute_sigma(vector<double>& kd_tree_data,
 	Performance p;
 	get_kernels(kernels, sigmax, sigmay);
 	//cout << kernels.size() << endl;
-	vector<double> kd_tree_kernel(kernels.size() * 9, 0);
+	vector<double> kd_tree_kernel(kernels.size() * kernel_size_1d, 0);
 	for (int i = 0; i < kernels.size(); i++)
 	{
 		kernels[i].normalize();
-		for (int mi = 0; mi < 9; mi++)
-			kd_tree_kernel[i * 9 + mi] = kernels[i][mi];
+		for (int mi = 0; mi < kernel_size_1d; mi++)
+			kd_tree_kernel[i * kernel_size_1d + mi] = kernels[i][mi];
 	}
-	flann::Matrix<double> points_mat = flann::Matrix<double>(&kd_tree_kernel[0], kernels.size(), 9);
-	flann::Matrix<double> query = flann::Matrix<double>(&kd_tree_data[0], kd_tree_data.size() / 9, 9);
+	flann::Matrix<double> points_mat = flann::Matrix<double>(&kd_tree_kernel[0], kernels.size(), kernel_size_1d);
+	flann::Matrix<double> query = flann::Matrix<double>(&kd_tree_data[0], 
+		kd_tree_data.size() / kernel_size_1d, kernel_size_1d);
 	int nns_number = 1;
 	flann::Matrix<int> indices(new int[query.rows*nns_number], query.rows, nns_number);
 	flann::Matrix<double> dists(new double[query.rows*nns_number], query.rows, nns_number);
@@ -541,68 +624,69 @@ void compute_dumura(const vector<vector<vector<LED_info>>>& relationship,
 	Performance p;
 	//img_output = Mat(Size(IMG_WIDTH, IMG_HEIGHT), CV_8UC3, Scalar(0, 0, 0));
 	vector<VectorXd> kernels;
-	kernels.resize(sample_of_center*sample_of_center, VectorXd(9));
+	kernels.resize(sample_of_center*sample_of_center, VectorXd(kernel_size_1d));
 	cout << "[match guassian] matching..." << endl;
 	// blue 1.06 0.92
 	// green 0.71, 0.85
 	//double sigmax = 0.77, sigmay = 0.77; 
 	Mat img_result = Mat(Size(3000, 2000), CV_8UC3, Scalar(0, 0, 0));
-	vector<double> sigma_bgr{ 0.66, 0.62, 0.64 };//({ 0.66, 0.62, 0.64 });
+	vector<double> sigma_bgr{ 0.64, 0.55, 0.64 };//({ 0.66, 0.62, 0.64 });
 	for (int select_rgb = 0; select_rgb < relationship.size(); select_rgb++)
 	//int select_rgb = 1;
 	{
 		{
-			vector<double> kd_tree_data;
-			VectorXd center_region(9);
-			for (auto d : relationship[select_rgb])
-				for (auto dd : d)
-				{
-					center_region << pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x - 1),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x + 1),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x),
-						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);
-					center_region.normalize();
-					for (int mi = 0; mi < 9; mi++)
-						kd_tree_data.push_back(center_region[mi]);
-				}
-			double sigma_init, sigma, loss_old, loss = 1000000;
-			bool flag = false;
-			for (sigma_init = 0.5; sigma_init < 1.5; sigma_init += 0.1)
-			{
-				loss_old = loss;
-				loss = compute_sigma(kd_tree_data, kernels, sigma_init, sigma_init);
-				if (!flag && loss_old - loss > 0)
-				{
-					flag = true;
-				}
-				else if (flag && loss_old - loss < 0)
-				{
-					break;
-				}
-			}
-			sigma_init -= 0.1;
-			cout << "init sigma: " << sigma_init << " ";
-			flag = false;
-			for (sigma = sigma_init - 0.1; sigma < sigma_init + 0.1; sigma += 0.01)
-			{
-				loss_old = loss;
-				loss = compute_sigma(kd_tree_data, kernels, sigma, sigma);
-				if (!flag && loss_old - loss > 0)
-				{
-					flag = true;
-				}
-				else if (flag && loss_old - loss < 0)
-				{
-					break;
-				}
-			}
-			sigma -= 0.01;
-			sigma_bgr[select_rgb] = sigma;
+			//vector<double> kd_tree_data;
+			//VectorXd center_region(kernel_size_1d);
+			//for (auto d : relationship[select_rgb])
+			//	for (auto dd : d)
+			//	{
+			//		/*center_region << pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x - 1),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x + 1),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x),
+			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);*/
+			//		get_region(center_region, pic[select_rgb][primary_pic], dd.pixel.x, dd.pixel.y);
+			//		center_region.normalize();
+			//		for (int mi = 0; mi < kernel_size_1d; mi++)
+			//			kd_tree_data.push_back(center_region[mi]);
+			//	}
+			//double sigma_init, sigma, loss_old, loss = 1000000;
+			//bool flag = false;
+			//for (sigma_init = 0.5; sigma_init < 1.5; sigma_init += 0.1)
+			//{
+			//	loss_old = loss;
+			//	loss = compute_sigma(kd_tree_data, kernels, sigma_init, sigma_init);
+			//	if (!flag && loss_old - loss > 0)
+			//	{
+			//		flag = true;
+			//	}
+			//	else if (flag && loss_old - loss < 0)
+			//	{
+			//		break;
+			//	}
+			//}
+			//sigma_init -= 0.1;
+			//cout << "init sigma: " << sigma_init << " ";
+			//flag = false;
+			//for (sigma = sigma_init - 0.1; sigma < sigma_init + 0.1; sigma += 0.01)
+			//{
+			//	loss_old = loss;
+			//	loss = compute_sigma(kd_tree_data, kernels, sigma, sigma);
+			//	if (!flag && loss_old - loss > 0)
+			//	{
+			//		flag = true;
+			//	}
+			//	else if (flag && loss_old - loss < 0)
+			//	{
+			//		break;
+			//	}
+			//}
+			//sigma -= 0.01;
+			//sigma_bgr[select_rgb] = sigma;
 		}
 
 		cout << "use sigma: " << sigma_bgr[select_rgb] << endl;
@@ -708,7 +792,6 @@ void compute_dumura(const vector<vector<vector<LED_info>>>& relationship,
 	}
 }
 
-const vector<int> region({ -1,0,1 });
 void draw_pic_with_kernel(const int y, const int x,
 	const double val, const VectorXd& kernel, Mat& img)
 {
@@ -733,13 +816,13 @@ void match_with_location2(Mat& result, const char *outfile,
 	flann::Matrix<int> indices;
 	flann::Matrix<double> dists;
 	vector<double> kd_tree_data;
-	VectorXd center_region(9);
+	VectorXd center_region(kernel_size_1d);
 	Mat pic = img.clone();
 	cvtColor(pic, pic, cv::COLOR_BGR2GRAY);
 	for (auto d : relationship)
 		for (auto dd : d)
 		{
-			center_region << pic.at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
+			/*center_region << pic.at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
 				pic.at<byte>(dd.pixel.y - 1, dd.pixel.x),
 				pic.at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
 				pic.at<byte>(dd.pixel.y, dd.pixel.x - 1),
@@ -747,17 +830,19 @@ void match_with_location2(Mat& result, const char *outfile,
 				pic.at<byte>(dd.pixel.y, dd.pixel.x + 1),
 				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
 				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x),
-				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);
+				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);*/
+			get_region(center_region, pic, dd.pixel.x, dd.pixel.y);
 			center_region.normalize();
-			for (int mi = 0; mi < 9; mi++)
+			for (int mi = 0; mi < kernel_size_1d; mi++)
 				kd_tree_data.push_back(center_region[mi]);
 		}
 	query_by_kdtree(kd_tree_data, kernels, indices, dists);
 
 	vector<double> guassian_mul_value(indices.rows, -1);
 	set<int> index_set;
-	VectorXd ones(9);
-	ones << 1, 1, 1, 1, 1, 1, 1, 1, 1;
+	VectorXd ones(kernel_size_1d);
+	for (int i = 0; i < kernel_size_1d; i++)
+		ones[i] = 1;
 	int centers_id = 0;
 	Point cur;
 	Mat gaussian_mul_kernel_result(Size(11648, 8742), CV_8UC3, Scalar(0, 0, 0)),
@@ -771,7 +856,7 @@ void match_with_location2(Mat& result, const char *outfile,
 			if (relationship[vj][vi].state == VALID)
 			{
 				cur = relationship[vj][vi].pixel;
-				center_region << pic.at<byte>(cur.y - 1, cur.x - 1),
+				/*center_region << pic.at<byte>(cur.y - 1, cur.x - 1),
 					pic.at<byte>(cur.y - 1, cur.x),
 					pic.at<byte>(cur.y - 1, cur.x + 1),
 					pic.at<byte>(cur.y, cur.x - 1),
@@ -779,7 +864,8 @@ void match_with_location2(Mat& result, const char *outfile,
 					pic.at<byte>(cur.y, cur.x + 1),
 					pic.at<byte>(cur.y + 1, cur.x - 1),
 					pic.at<byte>(cur.y + 1, cur.x),
-					pic.at<byte>(cur.y + 1, cur.x + 1);
+					pic.at<byte>(cur.y + 1, cur.x + 1);*/
+				get_region(center_region, pic, cur.x, cur.y);
 				double tmp = A.colPivHouseholderQr().solve(center_region)[0];
 				guassian_mul_value[centers_id] = tmp;
 				draw_pic_with_kernel(cur.y, cur.x, tmp, kernels[index], gaussian_mul_kernel_result);
@@ -952,7 +1038,7 @@ void compute_dumura_single_pic(vector<vector<vector<LED_info>>>& relationship,
 {
 	Performance p;
 	vector<VectorXd> kernels;
-	kernels.resize(sample_of_center*sample_of_center, VectorXd(9));
+	kernels.resize(sample_of_center*sample_of_center, VectorXd(kernel_size_1d));
 	cout << "[match guassian] matching single..." << endl;
 	// blue 1.06 0.92
 	// green 0.71, 0.85
@@ -1000,7 +1086,8 @@ void compute_dumura_single_pic(vector<vector<vector<LED_info>>>& relationship,
 		char result_file[MAX_PATH], input_txt[MAX_PATH], output_csv[MAX_PATH];
 		sprintf(result_file, "%s/valid_result_%s.png",
 			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
-		sprintf(input_txt, "%s/gaussian_val.txt", input_prefix);
+		sprintf(input_txt, "%s/gaussian_val_%s.txt", input_prefix,
+			output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		sprintf(output_csv, "%s/valid_gaussian_val.txt", output_prefix);
 		match_with_location2(img_result, result_file, input_txt, output_csv, output_prefix,
 			relationship[select_rgb], capture_pentile_g_value,
@@ -1063,7 +1150,7 @@ void match_with_location_to_exr(vector<float>& result, const char *outfile,
 	cout << "compute : " << outfile << endl;
 	// flann
 	Mat pic = img.clone();
-	VectorXd center_region(9);
+	VectorXd center_region(kernel_size_1d);
 	flann::Matrix<int> indices;
 	flann::Matrix<double> dists;
 	vector<double> kd_tree_data;
@@ -1071,7 +1158,7 @@ void match_with_location_to_exr(vector<float>& result, const char *outfile,
 	for (auto d : relationship)
 		for (auto dd : d)
 		{
-			center_region << pic.at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
+			/*center_region << pic.at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
 				pic.at<byte>(dd.pixel.y - 1, dd.pixel.x),
 				pic.at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
 				pic.at<byte>(dd.pixel.y, dd.pixel.x - 1),
@@ -1079,16 +1166,18 @@ void match_with_location_to_exr(vector<float>& result, const char *outfile,
 				pic.at<byte>(dd.pixel.y, dd.pixel.x + 1),
 				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
 				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x),
-				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);
+				pic.at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);*/
+			get_region(center_region, pic, dd.pixel.x, dd.pixel.y);
 			center_region.normalize();
-			for (int mi = 0; mi < 9; mi++)
+			for (int mi = 0; mi < kernel_size_1d; mi++)
 				kd_tree_data.push_back(center_region[mi]);
 		}
 	query_by_kdtree(kd_tree_data, kernels, indices, dists);
 
 	set<int> index_set;
-	VectorXd ones(9);
-	ones << 1, 1, 1, 1, 1, 1, 1, 1, 1;
+	VectorXd ones(kernel_size_1d);
+	for(int i=0;i<kernel_size_1d;i++) 
+		ones[i] = 1;
 	int centers_id = 0;
 	Point cur;
 	for (int vj = 0; vj < relationship.size(); vj++)
@@ -1102,7 +1191,7 @@ void match_with_location_to_exr(vector<float>& result, const char *outfile,
 				&& re.locate.y >= 0 && re.locate.y < height)
 			{
 				cur = re.pixel;
-				center_region << pic.at<byte>(cur.y - 1, cur.x - 1),
+				/*center_region << pic.at<byte>(cur.y - 1, cur.x - 1),
 					pic.at<byte>(cur.y - 1, cur.x),
 					pic.at<byte>(cur.y - 1, cur.x + 1),
 					pic.at<byte>(cur.y, cur.x - 1),
@@ -1110,7 +1199,9 @@ void match_with_location_to_exr(vector<float>& result, const char *outfile,
 					pic.at<byte>(cur.y, cur.x + 1),
 					pic.at<byte>(cur.y + 1, cur.x - 1),
 					pic.at<byte>(cur.y + 1, cur.x),
-					pic.at<byte>(cur.y + 1, cur.x + 1);
+					pic.at<byte>(cur.y + 1, cur.x + 1);*/
+				get_region(center_region, pic, cur.x, cur.y);
+
 				//guassian_mul_value[centers_id] = A.colPivHouseholderQr().solve(center_region)[0];
 				//width - 1 - x, y  <=> y, x
 				//result[((width - 1 - re.locate.x)*width + re.locate.y) * 3 + 1] = A.colPivHouseholderQr().solve(center_region)[0];
@@ -1129,7 +1220,7 @@ void compute_intensity_to_exr(vector<vector<vector<LED_info>>>& relationship,
 {
 	Performance p;
 	vector<VectorXd> kernels;
-	kernels.resize(sample_of_center*sample_of_center, VectorXd(9));
+	kernels.resize(sample_of_center*sample_of_center, VectorXd(kernel_size_1d));
 	cout << "[match guassian] matching intensity to exr..." << endl;
 	//Mat img_result = Mat(Size(width, height), CV_8UC3, Scalar(0, 0, 0));
 	vector<float> result(width*height * 3, 0);

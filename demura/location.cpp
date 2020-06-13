@@ -179,7 +179,7 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 	/*cout << endl << "each line:" << endl;
 	for (auto p : relation)
 		cout <<p.pixel<<"->"<< p.locate << endl;*/
-	//if(is_green)
+	if(is_green)
 		imwrite("./output/tmp.png", img_copy);
 }
 
@@ -309,12 +309,15 @@ void location_all_points(const Mat& rgb, const Mat& mask,
 		set<pair<int, int>> points_set;
 		vector<Point> left(OLED_pick_region), locate(OLED_pick_region);
 		const double low_limit = 1, interval_x = select_rgb == GREEN ? 4.5 : 9,
-			interval_y = 4.5;
+			interval_y = 4.6;
 		centers_vec.resize(cross_points.size());
 		bool flag;
 		for (int hi = 0; hi < centers_vec.size(); hi += OLED_pick_region)
-		//int hi = 252;
+		//int hi = 0;
 		{
+			if(hi==0)
+				while (image.at<byte>(cross_points[hi].pixel.y, cross_points[hi].pixel.x) < 5)
+					hi++;
 			//cout <<"hi: "<< hi << endl;
 			// right
 			for (int li = 0; li < OLED_pick_region && hi + li < cross_points.size(); li++)
@@ -536,20 +539,20 @@ int find_OLED_location_with_rgb_combination(
 {
 	vector<vector<LED_info>> cross_points(3);
 	for (int select_rgb = 0; select_rgb < rgb_image.size(); select_rgb++)
-	//int select_rgb = 0;
+	//int select_rgb = 1;
 	{
 		cout << "--------------------" << endl;
 		cout << "locate " << (select_rgb == RED ? "red" : (select_rgb == BLUE ? "blue" : "green")) << endl;
 		// find cross
 		{
-			if (select_rgb == 2)
+			/*if (select_rgb == 2)
 			{
-				cross_points[select_rgb].push_back({ Point(1021, 2151), Point(128, 60), CROSS });
+				cross_points[select_rgb].push_back({ Point(1021, 2151), Point(129, 60), CROSS });
 				cross_points[select_rgb].push_back({ Point(-1, -1), Point(2304, 60), CROSS });
 				cross_points[select_rgb].push_back({ Point(1010, 6594), Point(129, 1060), CROSS });
 				cross_points[select_rgb].push_back({ Point(-1, -1), Point(2304, 1060), CROSS });
 			}
-			else
+			else*/
 			find_cross(rgb_image[select_rgb], mask, output_prefix, pentile_width,
 				(RGB)select_rgb, cross_points[select_rgb]);
 			/*cross_points[select_rgb].push_back({ Point(1027, 2217), Point(129, 60), CROSS });
@@ -597,6 +600,22 @@ int find_OLED_location_with_rgb_combination(
 			out << endl;
 		}
 		out.close();
+
+		Mat img_result = Mat(Size(3000, 2000), CV_8UC3, Scalar(0, 0, 0));
+		char img_result_name[MAX_PATH];
+		sprintf(img_result_name, "%s/center_%s.png", output_prefix,
+			select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
+		for (auto line : centers_vec[select_rgb])
+		{
+			for (auto p : line)
+			{
+				if (p.locate.x > 0 && p.locate.y > 0)
+					img_result.at<Vec3b>(p.locate.y, p.locate.x)[select_rgb] =
+					rgb_image[select_rgb].at<Vec3b>(p.pixel.y, p.pixel.x)[select_rgb];
+			}
+			out << endl;
+		}
+		imwrite(img_result_name, img_result);
 	}
 	return 0;
 }
@@ -606,8 +625,8 @@ int tmp_valid_find_location(const std::vector<cv::Mat>& rgb_image, const cv::Mat
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec)
 {
 	vector<vector<LED_info>> cross_points(3);
-	//for (int select_rgb = 0; select_rgb < rgb_image.size(); select_rgb++)
-	int select_rgb = 1;
+	for (int select_rgb = 0; select_rgb < rgb_image.size(); select_rgb++)
+	//int select_rgb = 1;
 	{
 		// find cross
 		find_cross(rgb_image[select_rgb], mask, output_prefix, pentile_width,
