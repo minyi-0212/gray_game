@@ -16,9 +16,9 @@ using cv::Size;
 using cv::Scalar;
 using namespace Eigen;
 
-const int kernel_size = 5, kernel_size_1d = kernel_size * kernel_size,
+const int kernel_size = 3, kernel_size_1d = kernel_size * kernel_size,
 	half_kernel_size = kernel_size / 2;
-const vector<int> region({-2,-1,0,1,2 });
+const vector<int> region({-1,0,1});
 const int sample_of_center = 64, base = sample_of_center * sample_of_center;
 const double center_interval = 1.0 / sample_of_center;
 const int sample_of_guass_point = 64;
@@ -197,7 +197,7 @@ void compute_kernel(VectorXd& k,
 
 void get_kernels(vector<VectorXd>& kernels, const double sigmax, const double sigmay)
 {
-	double cx_begin = 2, cy_begin = 2;
+	double cx_begin = kernel_size / 2, cy_begin = kernel_size / 2;
 	int index = 0;
 	if (sigmax == sigmay)
 	{
@@ -376,7 +376,9 @@ void match_with_location(Mat& result,
 			}
 			double stdev = sqrt(accum / cnt); //方差
 
-			cout << "used kernels count: " << index_set.size() << endl;
+			cout << "used kernels count: " << index_set.size() << "/" << kernels.size() << endl;
+			if (index_set.size() < kernels.size())
+				cout << "something error" << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 			cout << "sum = " << sum << ", size = " << guassian_mul_value[primary_pic].size() << endl
 				<< "min = " << mmin << ", max = " << mmax << endl
 				<< "mean = " << mean << ", stdev = " << stdev << endl;
@@ -397,7 +399,7 @@ void match_with_location(Mat& result,
 				{
 					if (relationship[vj][vi].state == INVALID)
 						result.at<cv::Vec3b>(relationship[vj][vi].locate.y,
-							relationship[vj][vi].locate.x)[select_rgb] = 16;
+							relationship[vj][vi].locate.x)[select_rgb] = 0; //capture_pentile_g_value[primary_pic];
 					else if (guassian_mul_value[0][centers_id] >= mean)
 					{
 						result.at<cv::Vec3b>(relationship[vj][vi].locate.y,
@@ -408,7 +410,7 @@ void match_with_location(Mat& result,
 					{
 						cnt_large++;
 						result.at<cv::Vec3b>(relationship[vj][vi].locate.y,
-							relationship[vj][vi].locate.x)[select_rgb] = *capture_pentile_g_value.rbegin();
+							relationship[vj][vi].locate.x)[select_rgb] = capture_pentile_g_value.back();
 					}
 					else
 					{
@@ -451,6 +453,14 @@ void match_with_location(Mat& result,
 							relationship[vj][vi].locate.x)[select_rgb] = tmp;
 						mura_value.push_back(tmp);
 					}
+					/*if (relationship[vj][vi].locate.y == 830 && relationship[vj][vi].locate.x == 134) {
+						cout <<"a " << (int)result.at<cv::Vec3b>(relationship[vj][vi].locate.y,
+							relationship[vj][vi].locate.x)[select_rgb] << endl;
+					}
+					if (relationship[vj][vi].locate.y == 831 && relationship[vj][vi].locate.x == 134) {
+						cout << (int)result.at<cv::Vec3b>(relationship[vj][vi].locate.y,
+							relationship[vj][vi].locate.x)[select_rgb] << endl;
+					}*/
 				}
 				centers_id++;
 			}
@@ -467,18 +477,18 @@ void match_with_location(Mat& result,
 				if (r.locate.x >= 0 && r.locate.y >= 0 && r.state == INVALID)
 				{
 					cnt = 0;
-					result.at<cv::Vec3b>(r.locate.y, r.locate.x)[select_rgb] = 0;
+					//result.at<cv::Vec3b>(r.locate.y, r.locate.x)[select_rgb] = 0;
+					int ttttt = 0;
 					for (int i = 0; i < dx.size(); i++)
 					{
 						if (r.locate.y + dy[i] >= 0 && r.locate.y + dy[i] < result.rows
 							&&  r.locate.x + dx[i] >= 0 && r.locate.x + dx[i] < result.cols)
 						{
-							result.at<cv::Vec3b>(r.locate.y, r.locate.x)[select_rgb] +=
-								result.at<cv::Vec3b>(r.locate.y + dy[i], r.locate.x + dx[i])[select_rgb];
+							ttttt += result.at<cv::Vec3b>(r.locate.y + dy[i], r.locate.x + dx[i])[select_rgb];
 							cnt++;
 						}
 					}
-					if (cnt) result.at<cv::Vec3b>(r.locate.y, r.locate.x)[select_rgb] /= cnt;
+					if (cnt) result.at<cv::Vec3b>(r.locate.y, r.locate.x)[select_rgb] = ttttt / cnt;
 				}
 			}
 		}
@@ -628,11 +638,11 @@ void compute_dumura(const vector<vector<vector<LED_info>>>& relationship,
 	cout << "[match guassian] matching..." << endl;
 	// blue 1.06 0.92
 	// green 0.71, 0.85
-	//double sigmax = 0.77, sigmay = 0.77; 
+	//double sigmax = 0.77, sigmay = 0.77;
 	Mat img_result = Mat(Size(3000, 2000), CV_8UC3, Scalar(0, 0, 0));
-	vector<double> sigma_bgr{ 0.64, 0.55, 0.64 };//({ 0.66, 0.62, 0.64 });
-	for (int select_rgb = 0; select_rgb < relationship.size(); select_rgb++)
-	//int select_rgb = 1;
+	vector<double> sigma_bgr{ 0.64, 0.52, 0.64 };//({ 0.66, 0.62, 0.64 });
+	//for (int select_rgb = 0; select_rgb < relationship.size(); select_rgb++)
+	int select_rgb = 1;
 	{
 		{
 			//vector<double> kd_tree_data;
@@ -907,7 +917,9 @@ void match_with_location2(Mat& result, const char *outfile,
 		}
 		double stdev = sqrt(accum / cnt); //方差
 
-		cout << "used kernels count: " << index_set.size() << endl;
+		cout << "used kernels count: " << index_set.size() <<"/"<< kernels.size() << endl;
+		if (index_set.size() < kernels.size())
+			cout << "something error" << "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << endl;
 		cout << "sum = " << sum << ", size = " << guassian_mul_value.size() << endl
 			<< "min = " << mmin << ", max = " << mmax << endl
 			<< "mean = " << mean << ", stdev = " << stdev << endl;
@@ -980,8 +992,10 @@ void match_with_location2(Mat& result, const char *outfile,
 			tmp.second = re.locate.x;
 			if (re.state == VALID && re.locate.y >= 0 && re.locate.x >= 0)
 			{
-				if (mmap.find(tmp) == mmap.end())
+				if (mmap.find(tmp) == mmap.end()) {
 					result.at<cv::Vec3b>(re.locate.y, re.locate.x) = Vec3b(255, 255, 255);
+					cout << "(x,y) = " << "(" << tmp.second <<","<< tmp.first <<")" << "not find in mmap" << endl;
+				}
 				else if (mmap[tmp][0] > guassian_mul_value[centers_id])
 				{
 					out << re.locate.x << "," << re.locate.y << ","
