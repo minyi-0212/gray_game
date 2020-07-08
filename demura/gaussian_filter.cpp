@@ -16,9 +16,10 @@ using cv::Size;
 using cv::Scalar;
 using namespace Eigen;
 
-const int kernel_size = 3, kernel_size_1d = kernel_size * kernel_size,
+const int kernel_size = 3, 
+	kernel_size_1d = kernel_size * kernel_size,
 	half_kernel_size = kernel_size / 2;
-const vector<int> region({-1,0,1});
+const vector<int> region({-1, 0, 1});
 const int sample_of_center = 64, base = sample_of_center * sample_of_center;
 const double center_interval = 1.0 / sample_of_center;
 const int sample_of_guass_point = 64;
@@ -276,7 +277,7 @@ void match_with_location(Mat& result,
 	const char *outfile, const char *result_txt, const char *result_csv,
 	const vector<vector<LED_info>>& relationship,
 	const vector<int>& capture_pentile_g_value,
-	const vector<int>& expo,
+	//const vector<int>& expo,
 	const vector<Mat>& pic, const int primary_pic,
 	const vector<VectorXd>& kernels, RGB select_rgb)
 {
@@ -627,7 +628,6 @@ double compute_sigma(vector<double>& kd_tree_data,
 extern void draw_cross(Mat& img, int x, int y, Vec3b color);
 void compute_dumura(const vector<vector<vector<LED_info>>>& relationship,
 	const vector<int>& capture_pentile_g_value,
-	const  vector<vector<int>>& expo,
 	const vector<vector<cv::Mat>>& pic, const int primary_pic,
 	const char* output_prefix, int width, int height)
 {
@@ -641,62 +641,67 @@ void compute_dumura(const vector<vector<vector<LED_info>>>& relationship,
 	//double sigmax = 0.77, sigmay = 0.77;
 	Mat img_result = Mat(Size(3000, 2000), CV_8UC3, Scalar(0, 0, 0));
 	vector<double> sigma_bgr{ 0.64, 0.52, 0.64 };//({ 0.66, 0.62, 0.64 });
-	//for (int select_rgb = 0; select_rgb < relationship.size(); select_rgb++)
-	int select_rgb = 1;
+#ifdef SINGLE
+	int select_rgb = SINGLE;
+#else
+	for (int select_rgb = 0; select_rgb < relationship.size(); select_rgb++)
+#endif
 	{
 		{
-			//vector<double> kd_tree_data;
-			//VectorXd center_region(kernel_size_1d);
-			//for (auto d : relationship[select_rgb])
-			//	for (auto dd : d)
-			//	{
-			//		/*center_region << pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x - 1),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x + 1),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x),
-			//			pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);*/
-			//		get_region(center_region, pic[select_rgb][primary_pic], dd.pixel.x, dd.pixel.y);
-			//		center_region.normalize();
-			//		for (int mi = 0; mi < kernel_size_1d; mi++)
-			//			kd_tree_data.push_back(center_region[mi]);
-			//	}
-			//double sigma_init, sigma, loss_old, loss = 1000000;
-			//bool flag = false;
-			//for (sigma_init = 0.5; sigma_init < 1.5; sigma_init += 0.1)
-			//{
-			//	loss_old = loss;
-			//	loss = compute_sigma(kd_tree_data, kernels, sigma_init, sigma_init);
-			//	if (!flag && loss_old - loss > 0)
-			//	{
-			//		flag = true;
-			//	}
-			//	else if (flag && loss_old - loss < 0)
-			//	{
-			//		break;
-			//	}
-			//}
-			//sigma_init -= 0.1;
-			//cout << "init sigma: " << sigma_init << " ";
-			//flag = false;
-			//for (sigma = sigma_init - 0.1; sigma < sigma_init + 0.1; sigma += 0.01)
-			//{
-			//	loss_old = loss;
-			//	loss = compute_sigma(kd_tree_data, kernels, sigma, sigma);
-			//	if (!flag && loss_old - loss > 0)
-			//	{
-			//		flag = true;
-			//	}
-			//	else if (flag && loss_old - loss < 0)
-			//	{
-			//		break;
-			//	}
-			//}
-			//sigma -= 0.01;
-			//sigma_bgr[select_rgb] = sigma;
+#ifdef SIGMA_COMPUTE
+			vector<double> kd_tree_data;
+			VectorXd center_region(kernel_size_1d);
+			for (auto d : relationship[select_rgb])
+				for (auto dd : d)
+				{
+					/*center_region << pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x - 1),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y - 1, dd.pixel.x + 1),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x - 1),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y, dd.pixel.x + 1),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x - 1),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x),
+						pic[select_rgb][primary_pic].at<byte>(dd.pixel.y + 1, dd.pixel.x + 1);*/
+					get_region(center_region, pic[select_rgb][primary_pic], dd.pixel.x, dd.pixel.y);
+					center_region.normalize();
+					for (int mi = 0; mi < kernel_size_1d; mi++)
+						kd_tree_data.push_back(center_region[mi]);
+				}
+			double sigma_init, sigma, loss_old, loss = 1000000;
+			bool flag = false;
+			for (sigma_init = 0.5; sigma_init < 1.5; sigma_init += 0.1)
+			{
+				loss_old = loss;
+				loss = compute_sigma(kd_tree_data, kernels, sigma_init, sigma_init);
+				if (!flag && loss_old - loss > 0)
+				{
+					flag = true;
+				}
+				else if (flag && loss_old - loss < 0)
+				{
+					break;
+				}
+			}
+			sigma_init -= 0.1;
+			cout << "init sigma: " << sigma_init << " ";
+			flag = false;
+			for (sigma = sigma_init - 0.1; sigma < sigma_init + 0.1; sigma += 0.01)
+			{
+				loss_old = loss;
+				loss = compute_sigma(kd_tree_data, kernels, sigma, sigma);
+				if (!flag && loss_old - loss > 0)
+				{
+					flag = true;
+				}
+				else if (flag && loss_old - loss < 0)
+				{
+					break;
+				}
+			}
+			sigma -= 0.01;
+			sigma_bgr[select_rgb] = sigma;
+#endif
 		}
 
 		cout << "use sigma: " << sigma_bgr[select_rgb] << endl;
@@ -707,7 +712,7 @@ void compute_dumura(const vector<vector<vector<LED_info>>>& relationship,
 		sprintf(result_txt, "%s/gaussian_val_%s.txt", output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		sprintf(result_csv, "%s/distribution_%s.csv", output_prefix, select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
 		match_with_location(img_result, result_file, result_txt, result_csv,
-			relationship[select_rgb], capture_pentile_g_value, expo[select_rgb],
+			relationship[select_rgb], capture_pentile_g_value, /*expo[select_rgb],*/
 			pic[select_rgb], primary_pic, kernels, (RGB)select_rgb);
 	}
 	p.endAndPrint();

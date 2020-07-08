@@ -19,7 +19,6 @@
 
 void compute_dumura(const std::vector<std::vector<std::vector<LED_info>>>& centers_vec,
 	const std::vector<int>& capture_pentile_g_value,
-	const std::vector<std::vector<int>>& expo,
 	const std::vector<std::vector<cv::Mat>>& pic, const int primary_pic,
 	const char* output_prefix, int width, int height);
 

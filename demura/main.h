@@ -20,3 +20,7 @@ struct LED_info {
 	cv::Point pixel, locate;
 	LED_state state;
 };
+
+//#define SINGLE GREEN
+//#define ONLY_LOCATION
+#define SIGMA_COMPUTE

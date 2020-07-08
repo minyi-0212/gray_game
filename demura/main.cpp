@@ -6,6 +6,7 @@
 #include "diff.h"
 #include <direct.h>
 #include <fstream>
+#include <algorithm>
 using namespace std;
 using namespace cv;
 using namespace Eigen;
@@ -116,7 +117,6 @@ void split_rgb()
 	imwrite(result_file, pentile);
 }
 
-#include <algorithm>
 extern void draw_cross(Mat& img, int x, int y, Vec3b color);
 void generate_compensate_value(const char* img_file)
 {
@@ -630,8 +630,7 @@ void intensity_to_exr(const char* inpath, const char* outpath,
 
 // 读入一系列图片(如g4-g32)，根据这些图片，计算出亮度-mura值对应关系，然后反向输出平均值对应的mura值
 #define GEXPO_RANGE // 16_224 4_32
-void compute_demura_value_use_range(char* inpath, char* outpath,
-	char* prefix, char* suffix, const vector<vector<int>>& ms)
+void compute_demura_value_use_range(char* inpath, char* outpath, char* prefix, char* suffix)
 {
 	//String inpath("E:/coding/gray_game/demura/input2.2.2_pentile"),
 	//	outpath("E:/coding/gray_game/demura/output");
@@ -678,6 +677,7 @@ void compute_demura_value_use_range(char* inpath, char* outpath,
 					capture_pentile_g_value[target_g_id], suffix, ms[1][target_g_id]);
 				sprintf_s(r_file, "%s/r_%s%02d%s%04d.bmp", inpath, prefix,
 					capture_pentile_g_value[target_g_id], suffix, ms[2][target_g_id]);*/
+
 			sprintf_s(b_file, "%s/b_%s%03d.bmp", inpath, prefix,
 				capture_pentile_g_value[target_g_id]);
 			sprintf_s(g_file, "%s/g_%s%03d.bmp", inpath, prefix,
@@ -696,6 +696,7 @@ void compute_demura_value_use_range(char* inpath, char* outpath,
 					capture_pentile_g_value[target_g_id], suffix, ms[1][target_g_id]);
 				sprintf_s(r_file, "%s/%s%d%s.bmp", inpath, prefix,
 					capture_pentile_g_value[target_g_id], suffix, ms[1][target_g_id]);*/
+
 			cout << g_file << endl;
 			// mask
 			sprintf_s(mask_file, "%s/mask.png", inpath);
@@ -703,12 +704,27 @@ void compute_demura_value_use_range(char* inpath, char* outpath,
 			const RGB b = BLUE, g = GREEN, r = RED;
 			vector<Mat> rgb;
 			Mat bb = imread(b_file), gg = imread(g_file), rr = imread(r_file);
-			/*rgb.push_back(bb);
+#ifdef SINGLE
+			if (SINGLE == BLUE) {
+				rgb.push_back(bb);
+				rgb.push_back(bb);
+				rgb.push_back(bb);
+			}
+			else if (SINGLE == GREEN) {
+				rgb.push_back(gg);
+				rgb.push_back(gg);
+				rgb.push_back(gg);
+			}
+			else if (SINGLE == RED) {
+				rgb.push_back(rr);
+				rgb.push_back(rr);
+				rgb.push_back(rr);
+			}
+#else
+			rgb.push_back(bb);
 			rgb.push_back(gg);
-			rgb.push_back(rr);*/
-			rgb.push_back(gg);
-			rgb.push_back(gg);
-			rgb.push_back(gg);
+			rgb.push_back(rr);
+#endif
 			if (rgb[b].data == nullptr || rgb[g].data == nullptr || rgb[r].data == nullptr)
 			{
 				cout << "file read error" << endl << b_file << endl
@@ -725,13 +741,18 @@ void compute_demura_value_use_range(char* inpath, char* outpath,
 				return;
 			}
 			cout << "--------------------" << endl;
-			//return ;
+#ifdef ONLY_LOCATION
+			return ;
+#endif
 		}
 		// to test 4,8,11,16,23,32,64 value
 		vector<vector<Mat>> pic(3);
 		{
-			//for(int select_rgb =0; select_rgb <3; select_rgb++)
-			int select_rgb = 1;
+#ifdef SINGLE
+			int select_rgb = SINGLE;
+#else
+			for(int select_rgb = 0; select_rgb < 3; select_rgb++)
+#endif
 			{
 				for (int i = 0; i < capture_pentile_g_value.size(); i++)
 				{
@@ -763,7 +784,7 @@ void compute_demura_value_use_range(char* inpath, char* outpath,
 				}
 			}
 		}
-		compute_dumura(relationship, capture_pentile_g_value, ms,
+		compute_dumura(relationship, capture_pentile_g_value,
 			pic, target_g_id, outpath, pentile_height, pentile_width / 2 * 3);
 	}
 	cout << "the end." << endl;
@@ -785,7 +806,6 @@ void compute_single_validation(char* inpath, char* outpath, char* prefix, char* 
 	char valid_b_file[MAX_PATH], valid_g_file[MAX_PATH], valid_r_file[MAX_PATH],
 		//output
 		valid_mask_file[MAX_PATH];
-	//int valid_ms = 1000;
 	sprintf_s(valid_b_file, "%s/%s.bmp", valid_path, prefix);
 	sprintf_s(valid_g_file, "%s/%s.bmp", valid_path, prefix);
 	sprintf_s(valid_r_file, "%s/%s.bmp", valid_path, prefix);
@@ -1374,7 +1394,6 @@ int main(int argc, char* argv[])
 	//system("pause");
 	//return 0;
 
-
 	if (argv[1][0] == 'a')
 	{
 		cout << "mode a" << endl;
@@ -1383,22 +1402,7 @@ int main(int argc, char* argv[])
 	else if (argv[1][0] == 'b')
 	{
 		cout << "mode b" << endl;
-		//vector<int> ms{ 2000,2000,1800,750,1200,800,600,500 };
-		vector<vector<int>> ms{ { 600,600,600,600,600,600,600,600,600 },
-		{ 400,400,400,400,400,400,400,400,400 } ,
-		{ 380,380,380,380,380,380,380,380,380 } };
-		/*vector<vector<int>> ms{ { 600,600,600,600,600,600,600,600,600 },
-		//{ 600,600,600,600,600,600,600,600,600 } ,
-			{ 750,750,750,750,750,750,750,750,750 } ,
-		{ 380,380,380,380,380,380,380,380,380 } };*/
-		/*if (argc == 6 + 8)
-		{
-			for (int i = 0; i <= 7; i++)
-			{
-				ms[i] = atoi(argv[i + 6]);
-			}
-		}*/
-		compute_demura_value_use_range(argv[2], argv[3], argv[4], argv[5], ms);
+		compute_demura_value_use_range(argv[2], argv[3], argv[4], argv[5]);
 	}
 	else if (argv[1][0] == 'c')
 	{
