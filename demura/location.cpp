@@ -94,11 +94,10 @@ void location_one_column(const Mat& rgb, const Mat& mask,
 	//int s = 1, e = 3;
 	Point line_from(relation[s].pixel), line_to(relation[e].pixel),
 		locate_from(relation[s].locate), locate_to(relation[e].locate);
-	double k = (line_from.y == line_to.y) ? 0 : (line_from.y - line_to.y) /
+	double k = (line_from.y == line_to.y) ? 0 : (line_from.y - line_to.y)*1.0 /
 		(line_from.x == line_to.x ? 1 : (line_from.x - line_to.x)),
 		b = line_to.y - k * line_to.x;
 	relation.clear();
-
 	Point p1, p2;
 	int x = locate_from.x, y = locate_from.y;
 	if (is_green)
@@ -639,12 +638,35 @@ int tmp_valid_find_location(const std::vector<cv::Mat>& rgb_image, const cv::Mat
 	std::vector<std::vector<std::vector<LED_info>>>& centers_vec)
 {
 	vector<vector<LED_info>> cross_points(3);
+#ifdef SINGLE
+	int select_rgb = SINGLE;
+#else
 	for (int select_rgb = 0; select_rgb < rgb_image.size(); select_rgb++)
-	//int select_rgb = 1;
+#endif
 	{
+#ifdef INPUT_CROSS_COOR
+		int a, b;
+		//cout << "please input (x, y) of the left up cross point:" << endl;
+		//cin >> a >> b ;
+		//1044 2080
+		//1051 6485
+		a = 1012, b = 2151;
+		cross_points[select_rgb].push_back({ Point(a, b), Point(129 + (select_rgb==BLUE?-1:0), 60), CROSS });
+		cross_points[select_rgb].push_back({ Point(-1, -1), Point(2305 + (select_rgb == BLUE ? -1 : 0), 60), CROSS });
+		//cout << "please input (x, y) of the left down cross point:" << endl;
+		//cin >> a >> b;
+		a = 1005, b = 6591;
+		cross_points[select_rgb].push_back({ Point(a, b), Point(129 + (select_rgb == BLUE ? -1 : 0), 1060), CROSS });
+		cross_points[select_rgb].push_back({ Point(-1, -1), Point(2305 + (select_rgb == BLUE ? -1 : 0), 1060), CROSS });
+		for (auto cp : cross_points[select_rgb])
+		{
+			cout << cp.pixel.y << "," << cp.pixel.x << "->" << cp.locate << endl;
+		}
+#else
 		// find cross
 		find_cross(rgb_image[select_rgb], mask, output_prefix, pentile_width,
 			(RGB)select_rgb, cross_points[select_rgb]);
+#endif
 		// find one point in each line(represent each line)
 		if (cross_points[select_rgb][0].pixel.x != -1
 			&& cross_points[select_rgb][2].pixel.x != -1)
@@ -685,5 +707,21 @@ int tmp_valid_find_location(const std::vector<cv::Mat>& rgb_image, const cv::Mat
 			out << endl;
 		}
 		out.close();
+
+		Mat img_result = Mat(Size(3000, 2000), CV_8UC3, Scalar(0, 0, 0));
+		char img_result_name[MAX_PATH];
+		sprintf(img_result_name, "%s/valid_center_%s.png", output_prefix,
+			select_rgb == RED ? "r" : (select_rgb == BLUE ? "b" : "g"));
+		for (auto line : centers_vec[select_rgb])
+		{
+			for (auto p : line)
+			{
+				if (p.locate.x > 0 && p.locate.y > 0)
+					img_result.at<Vec3b>(p.locate.y, p.locate.x)[select_rgb] =
+					rgb_image[select_rgb].at<Vec3b>(p.pixel.y, p.pixel.x)[select_rgb];
+			}
+			out << endl;
+		}
+		imwrite(img_result_name, img_result);
 	}
 }

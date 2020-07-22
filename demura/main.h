@@ -21,6 +21,8 @@ struct LED_info {
 	LED_state state;
 };
 
-//#define SINGLE GREEN
+#define SINGLE BLUE
 //#define ONLY_LOCATION
-#define SIGMA_COMPUTE
+//#define SIGMA_COMPUTE
+#define INPUT_CROSS_COOR
+#define SQRT

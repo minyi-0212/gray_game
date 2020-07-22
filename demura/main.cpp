@@ -791,6 +791,67 @@ void compute_demura_value_use_range(char* inpath, char* outpath, char* prefix, c
 	return;
 }
 
+void read_val()
+{
+	/*cout << "inpath [argv1]" << inpath << endl
+		<< "outpath [argv2]" << outpath << endl
+		<< "prefix [argv3]" << prefix << endl;*/
+	char inpath[MAX_PATH], prefix[MAX_PATH];
+	sprintf_s(inpath, "F:/demura_data/20200710-统一曝光时间/20200710-20200707-192rgb");
+	sprintf_s(prefix, "id7_g");
+
+	int pentile_width = 752, pentile_height = 2436;
+	int target_g_id;
+	// 处理输入文件名字
+	char b_file[MAX_PATH], g_file[MAX_PATH], r_file[MAX_PATH], range_file[7][MAX_PATH],
+		//output
+		mask_file[MAX_PATH], cross_file[MAX_PATH],
+		output_csv[MAX_PATH];
+
+	cout << "--------------------" << endl;
+	vector<int> capture_pentile_g_value{ 160, 168, 176, 184, 192, 200, 208, 216, 224 };
+	//{ 16,20,24,28,32,36,40,44,48 };
+	//({ 4,8,12,16,20,24,28,32 });
+#ifdef SINGLE
+	int select_rgb = SINGLE;
+#else
+for (int select_rgb = 0; select_rgb < 3; select_rgb++)
+#endif
+	{
+		for (int i = 0; i < capture_pentile_g_value.size(); i++)
+		{
+			sprintf_s(range_file[i], "%s/%s_%s%03d.bmp", inpath,
+				select_rgb == 0 ? "b" : (select_rgb == 1 ? "g" : "r"),
+				prefix, capture_pentile_g_value[i]);
+		}
+		cout << range_file[0] << endl;
+		vector<vector<Mat>> pic(3);
+		for (int i = 0; i < capture_pentile_g_value.size(); i++)
+		{
+			Mat tmp = imread(range_file[i]);
+			if (tmp.data == NULL)
+			{
+				cout << range_file[i] << " read error." << endl;
+				return;
+			}
+			pic[select_rgb].push_back(tmp);
+		}
+		cout << "input points cnt:" << endl;
+		int cnt;
+		cin >> cnt;
+		cout << "input the (x,y):" << endl;
+		while (cnt--) {
+			int x, y;
+			cin >> x >> y;
+			for (int i = 0; i < pic[select_rgb].size(); i++) {
+				cout << (int)pic[select_rgb][i].at<cv::Vec3b>(y, x)[select_rgb] << " ";
+			}
+			cout << endl;
+		}
+	}
+	return;
+}
+
 // demura后的拍摄图片，重新计算对应的亮度-mura关系下的mura值
 void compute_single_validation(char* inpath, char* outpath, char* prefix, char* valid_path)
 {
@@ -802,7 +863,8 @@ void compute_single_validation(char* inpath, char* outpath, char* prefix, char* 
 	int pentile_width = 752, pentile_height = 2436;
 	int target_g_id;
 
-	vector<int> capture_pentile_g_value({ 4,8,12,16,20,24,28,32 });
+	vector<int> capture_pentile_g_value{ 160, 168, 176, 184, 192, 200, 208, 216, 224 }; 
+	//({ 4,8,12,16,20,24,28,32 });
 	char valid_b_file[MAX_PATH], valid_g_file[MAX_PATH], valid_r_file[MAX_PATH],
 		//output
 		valid_mask_file[MAX_PATH];
@@ -832,7 +894,6 @@ void compute_single_validation(char* inpath, char* outpath, char* prefix, char* 
 		cout << "--------------------" << endl;
 		compute_dumura_single_pic(relationship, capture_pentile_g_value, gg,
 			inpath, outpath, pentile_height, pentile_width / 2 * 3);
-
 	}
 	cout << "the end." << endl;
 	return;
@@ -1301,6 +1362,20 @@ int main(int argc, char* argv[])
 	imwrite(out_path, pentile);
 	return 0;*/
 
+	/*Mat img = imread("F:/demura_data/20200628-pentile_g_160-224（7号屏）/result3x3/a_center_g.png");
+	long long val = 0, cnt = 0;
+	for (int y = 33; y < 1081; y++)
+	{
+		for (int x = 56; x < 2316; x++)
+		{
+			val+= img.at<Vec3b>(y, x)[1];
+			cnt++;
+		}
+	}
+	cout << val / cnt << endl;
+	system("pause");
+	return 0;*/
+
 	/*Mat image = imread(argv[1]), out(image.size(), image.type());
 	char out_path[MAX_PATH];
 	int cnt[3] = { 0,0,0 };
@@ -1350,6 +1425,21 @@ int main(int argc, char* argv[])
 	}
 	return 0;*/
 
+	/*Mat image = imread("F:/demura_data/20200710-统一曝光时间/20200710-20200707-192rgb/result5x5_2/single_result_g.bmp"),
+		image2 = imread("F:/demura_data/20200710-统一曝光时间/20200710-20200707-192rgb/result5x5_sqrt/single_result_g.bmp");
+	Mat result = Mat(image.size(), CV_8UC3);
+	for (int y = 0; y < image.rows; y++)
+	{
+		for (int x = 0; x < image.cols; x++)
+		{
+			if(image.at<Vec3b>(y, x)[1] > 192 && image.at<Vec3b>(y, x)[1] > image2.at<Vec3b>(y, x)[1])
+				result.at<Vec3b>(y, x)[1] = image.at<Vec3b>(y, x)[1] - image2.at<Vec3b>(y, x)[1];
+			else if (image.at<Vec3b>(y, x)[1] < image2.at<Vec3b>(y, x)[1])
+				result.at<Vec3b>(y, x)[2] = 255;
+		}
+	}
+	imwrite("F:/demura_data/20200710-统一曝光时间/20200710-20200707-192rgb/tmp.png", result);*/
+
 	/*char path[MAX_PATH], file[MAX_PATH];
 	sprintf(path, "E:/document/研二/demura/20200430scaled验证/result_");
 	vector<float> scale{0.8, 0.85, 0.9, 0.95, 1.0, 1.05, 1.1, 1.15, 1.2};
@@ -1387,7 +1477,8 @@ int main(int argc, char* argv[])
 		}
 	}
 	return 0;*/
-
+	
+	//read_val();
 	//generate_four_compare();
 	//split_rgb();
 	//generate_from_3expo();
